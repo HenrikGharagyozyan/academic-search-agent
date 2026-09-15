@@ -27,9 +27,9 @@ class FirecrawlProvider:
 
         return [
             SearchResult(
-                title=item.get("title", ""),
-                url=item.get("url", ""),
-                snippet=item.get("description", ""),
+                title=item.title or "",
+                url=item.url,
+                snippet=item.description or "",
             )
             for item in web_results[:limit]
         ]
