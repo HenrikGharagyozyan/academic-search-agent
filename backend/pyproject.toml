@@ -1,7 +1,7 @@
 [project]
 name = "academic-search-agent-backend"
 version = "0.1.0"
-description = "Add your description here"
+description = "AI-powered academic research assistant backend"
 readme = "README.md"
 authors = [
     { name = "HenrikGharagyozyan1", email = "henrik.gharagyozyan1@gmail.com" }
@@ -19,3 +19,6 @@ dependencies = [
 
 [tool.uv]
 package = false
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
