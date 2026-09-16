@@ -7,6 +7,10 @@ class Claim(BaseModel):
     confidence: str  # "high" | "medium" | "low"
 
 
+class AnswerRequest(BaseModel):
+    question: str
+
+
 class ClaimsResponse(BaseModel):
     claims: list[Claim]
 
