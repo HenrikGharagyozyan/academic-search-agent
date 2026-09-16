@@ -5,7 +5,12 @@ from app.schemas.document import Chunk, DocumentLine
 MAX_LINES_PER_CHUNK = 20
 
 
-def chunk_lines(document_id: str, lines: list[DocumentLine]) -> list[Chunk]:
+def chunk_lines(
+    document_id: str,
+    lines: list[DocumentLine],
+    source_url: str,
+    title: str,
+) -> list[Chunk]:
     if not lines:
         return []
 
@@ -34,6 +39,8 @@ def chunk_lines(document_id: str, lines: list[DocumentLine]) -> list[Chunk]:
                     text="\n".join(l.text for l in piece),
                     start_line=piece[0].line_number,
                     end_line=piece[-1].line_number,
+                    source_url=source_url,
+                    title=title,
                 )
             )
 

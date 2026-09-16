@@ -22,3 +22,5 @@ class Chunk(BaseModel):
     text: str
     start_line: int
     end_line: int
+    source_url: str
+    title: str
