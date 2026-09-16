@@ -7,6 +7,9 @@ from app.providers.firecrawl_provider import SearchResult
 
 class ResearchState(TypedDict):
     question: str
+    search_query: str
     search_results: list[SearchResult]
     chunks: list[Chunk]
     claims: list[Claim]
+    retry_count: int
+    evidence_sufficient: bool
