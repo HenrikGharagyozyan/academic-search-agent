@@ -19,7 +19,15 @@ class ResearchService:
 
     def answer(self, question: str) -> Answer:
         result = self._graph.invoke(
-            {"question": question, "search_results": [], "chunks": [], "claims": []}
+            {
+                "question": question,
+                "search_query": question,
+                "search_results": [],
+                "chunks": [],
+                "claims": [],
+                "retry_count": 0,
+                "evidence_sufficient": False,
+            }
         )
 
         chunks: list[Chunk] = result["chunks"]
