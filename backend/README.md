@@ -81,7 +81,7 @@ cp .env.example .env
 ## Project structure
 
 ```
-agentx-search/
+academic-search-agent/
 ├── backend/
 │   ├── app/
 │   │   ├── main.py          # FastAPI app entrypoint
