@@ -11,7 +11,10 @@ def test_search_node_calls_firecrawl_search():
         SearchResult(title="Paper", url="https://example.com", snippet="...")
     ]
 
-    result = search_node({"question": "test question"}, firecrawl=mock_firecrawl)
+    result = search_node(
+        {"question": "test question", "search_query": "test question"},
+        firecrawl=mock_firecrawl,
+    )
 
     assert len(result["search_results"]) == 1
     mock_firecrawl.search.assert_called_once_with("test question", limit=3)
