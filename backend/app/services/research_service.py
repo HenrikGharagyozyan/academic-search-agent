@@ -3,6 +3,7 @@ import logging
 from app.agents.graph import build_research_graph
 from app.providers.firecrawl_provider import FirecrawlProvider
 from app.providers.gemini_provider import GeminiProvider
+from app.retrieval.vector_store import ChunkVectorStore
 from app.schemas.answer import Answer, AnswerEvidence
 from app.schemas.document import Chunk
 
@@ -14,8 +15,9 @@ class ResearchService:
         self,
         firecrawl: FirecrawlProvider | None = None,
         gemini: GeminiProvider | None = None,
+        vector_store: ChunkVectorStore | None = None,
     ) -> None:
-        self._graph = build_research_graph(firecrawl, gemini)
+        self._graph = build_research_graph(firecrawl, gemini, vector_store)
 
     def answer(self, question: str) -> Answer:
         result = self._graph.invoke(
@@ -24,6 +26,7 @@ class ResearchService:
                 "search_query": question,
                 "search_results": [],
                 "chunks": [],
+                "selected_chunks": [],
                 "claims": [],
                 "retry_count": 0,
                 "evidence_sufficient": False,
