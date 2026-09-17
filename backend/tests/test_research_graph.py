@@ -27,13 +27,17 @@ def test_graph_runs_end_to_end_with_mocks():
 
     mock_gemini.generate_claims.side_effect = fake_generate_claims
 
-    graph = build_research_graph(firecrawl=mock_firecrawl, gemini=mock_gemini)
+    mock_vector_store = MagicMock()
+    mock_vector_store.select_relevant_chunks.side_effect = lambda question, chunks, top_k=15: chunks
+
+    graph = build_research_graph(firecrawl=mock_firecrawl, gemini=mock_gemini, vector_store=mock_vector_store)
     result = graph.invoke(
         {
             "question": "test?",
             "search_query": "test?",
             "search_results": [],
             "chunks": [],
+            "selected_chunks": [],
             "claims": [],
             "retry_count": 0,
             "evidence_sufficient": False,
@@ -72,13 +76,19 @@ def test_graph_retries_when_no_evidence_found_then_succeeds():
 
     mock_gemini.generate_claims.side_effect = fake_generate_claims
 
-    graph = build_research_graph(firecrawl=mock_firecrawl, gemini=mock_gemini)
+    mock_vector_store = MagicMock()
+    mock_vector_store.select_relevant_chunks.side_effect = lambda question, chunks, top_k=15: chunks
+
+    graph = build_research_graph(
+        firecrawl=mock_firecrawl, gemini=mock_gemini, vector_store=mock_vector_store
+    )
     result = graph.invoke(
         {
             "question": "test?",
             "search_query": "test?",
             "search_results": [],
             "chunks": [],
+            "selected_chunks": [],
             "claims": [],
             "retry_count": 0,
             "evidence_sufficient": False,
@@ -105,13 +115,19 @@ def test_graph_stops_after_max_retries_with_no_evidence():
         Claim(text="Hallucinated", evidence_ids=["nonexistent"], confidence="low")
     ]
 
-    graph = build_research_graph(firecrawl=mock_firecrawl, gemini=mock_gemini)
+    mock_vector_store = MagicMock()
+    mock_vector_store.select_relevant_chunks.side_effect = lambda question, chunks, top_k=15: chunks
+
+    graph = build_research_graph(
+        firecrawl=mock_firecrawl, gemini=mock_gemini, vector_store=mock_vector_store
+    )
     result = graph.invoke(
         {
             "question": "test?",
             "search_query": "test?",
             "search_results": [],
             "chunks": [],
+            "selected_chunks": [],
             "claims": [],
             "retry_count": 0,
             "evidence_sufficient": False,

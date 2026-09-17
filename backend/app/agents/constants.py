@@ -3,6 +3,7 @@ NODE_RETRIEVE_AND_CHUNK = "retrieve_and_chunk"
 NODE_GENERATE_CLAIMS = "generate_claims"
 NODE_VERIFY_EVIDENCE = "verify_evidence"
 NODE_REFINE_QUERY = "refine_query"
+NODE_SELECT_CHUNKS = "select_relevant_chunks"
 
 ROUTE_END = "end"
 ROUTE_REFINE = "refine"

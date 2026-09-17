@@ -1,8 +1,21 @@
+from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponential
+
 from app.core.config import get_settings
 from app.providers.gemini_prompts import ANSWER_PROMPT, REFINE_PROMPT
 from app.schemas.answer import Claim, ClaimsResponse
 from langchain_google_genai import ChatGoogleGenerativeAI
 
+def _is_transient_error(exc: BaseException) -> bool:
+    message = str(exc)
+    return "429" in message or "503" in message or "RESOURCE_EXHAUSTED" in message or "UNAVAILABLE" in message
+
+
+gemini_retry = retry(
+    retry=retry_if_exception(_is_transient_error),
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=2, max=15),
+    reraise=True,
+)
 
 
 class GeminiProvider:
@@ -14,6 +27,7 @@ class GeminiProvider:
         )
         self._structured_llm = self._llm.with_structured_output(ClaimsResponse)
 
+    @gemini_retry
     def generate_claims(
         self, question: str, evidence_chunks: list[dict]
     ) -> list[Claim]:
@@ -21,12 +35,6 @@ class GeminiProvider:
             f"[evidence_id: {c['chunk_id']}]\n{c['text']}" for c in evidence_chunks
         )
 
-        # chain = PROMPT | self._structured_llm
-        # result: ClaimsResponse = chain.invoke(
-        #     {"question": question, "evidence_block": evidence_block}
-        # )
-        
-        # For test
         prompt_value = ANSWER_PROMPT.invoke(
             {"question": question, "evidence_block": evidence_block}
         )
@@ -34,6 +42,7 @@ class GeminiProvider:
 
         return result.claims
 
+    @gemini_retry
     def refine_query(self, question: str, previous_query: str) -> str:
         prompt_value = REFINE_PROMPT.invoke(
             {"question": question, "previous_query": previous_query}
