@@ -1,7 +1,7 @@
 from unittest.mock import MagicMock
 
 from app.providers.firecrawl_provider import ScrapedPage, SearchResult
-from app.schemas.answer import Claim
+from app.schemas.answer import Claim, ClaimsResponse
 from app.services.research_service import ResearchService
 
 
@@ -18,17 +18,21 @@ def test_answer_builds_evidence_from_used_claims():
 
     mock_gemini = MagicMock()
 
-    def fake_generate_claims(question, evidence_chunks):
+    def fake_generate_answer(question, evidence_chunks):
         first_id = evidence_chunks[0]["chunk_id"]
-        return [
-            Claim(
-                text="Gradient descent converges for convex functions.",
-                evidence_ids=[first_id],
-                confidence="high",
-            )
-        ]
+        return ClaimsResponse(
+            summary="Test summary",
+            claims=[
+                Claim(
+                    text="Gradient descent converges for convex functions.",
+                    evidence_ids=[first_id],
+                    confidence="high",
+                )
+            ],
+            conclusion="Test conclusion",
+        )
 
-    mock_gemini.generate_claims.side_effect = fake_generate_claims
+    mock_gemini.generate_answer.side_effect = fake_generate_answer
 
     mock_vector_store = MagicMock()
     mock_vector_store.select_relevant_chunks.side_effect = lambda question, chunks, top_k=15: chunks
@@ -36,6 +40,8 @@ def test_answer_builds_evidence_from_used_claims():
     service = ResearchService(firecrawl=mock_firecrawl, gemini=mock_gemini, vector_store=mock_vector_store)
     result = service.answer("Does gradient descent converge?")
 
+    assert result.summary == "Test summary"
+    assert result.conclusion == "Test conclusion"
     assert len(result.claims) == 1
     assert len(result.evidence) == 1
     evidence_item = list(result.evidence.values())[0]
@@ -53,9 +59,13 @@ def test_answer_drops_evidence_for_unknown_ids():
     )
 
     mock_gemini = MagicMock()
-    mock_gemini.generate_claims.return_value = [
-        Claim(text="Hallucinated claim", evidence_ids=["nonexistent_id"], confidence="low")
-    ]
+    mock_gemini.generate_answer.return_value = ClaimsResponse(
+        summary="Test summary",
+        claims=[
+            Claim(text="Hallucinated claim", evidence_ids=["nonexistent_id"], confidence="low")
+        ],
+        conclusion="Test conclusion",
+    )
 
     mock_vector_store = MagicMock()
     mock_vector_store.select_relevant_chunks.side_effect = lambda question, chunks, top_k=15: chunks
@@ -87,11 +97,15 @@ def test_answer_skips_failed_scrape_and_continues():
 
     mock_gemini = MagicMock()
 
-    def fake_generate_claims(question, evidence_chunks):
+    def fake_generate_answer(question, evidence_chunks):
         first_id = evidence_chunks[0]["chunk_id"]
-        return [Claim(text="Some claim", evidence_ids=[first_id], confidence="high")]
+        return ClaimsResponse(
+            summary="Test summary",
+            claims=[Claim(text="Some claim", evidence_ids=[first_id], confidence="high")],
+            conclusion="Test conclusion",
+        )
 
-    mock_gemini.generate_claims.side_effect = fake_generate_claims
+    mock_gemini.generate_answer.side_effect = fake_generate_answer
 
     mock_vector_store = MagicMock()
     mock_vector_store.select_relevant_chunks.side_effect = lambda question, chunks, top_k=15: chunks
