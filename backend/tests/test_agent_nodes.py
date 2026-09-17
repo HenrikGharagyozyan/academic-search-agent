@@ -67,3 +67,21 @@ def test_select_relevant_chunks_node_calls_vector_store():
     result = select_relevant_chunks_node(state, vector_store=mock_vector_store)
 
     assert result["selected_chunks"] == [chunk]
+
+
+def test_generate_claims_node_returns_empty_on_gemini_failure():
+    from app.agents.nodes import generate_claims_node
+    from app.schemas.document import Chunk
+
+    mock_gemini = MagicMock()
+    mock_gemini.generate_claims.side_effect = RuntimeError("503 UNAVAILABLE")
+
+    chunk = Chunk(
+        chunk_id="c1", document_id="doc1", text="text",
+        start_line=1, end_line=1, source_url="https://x.com", title="X",
+    )
+    state = {"question": "q?", "selected_chunks": [chunk]}
+
+    result = generate_claims_node(state, gemini=mock_gemini)
+
+    assert result["claims"] == []
