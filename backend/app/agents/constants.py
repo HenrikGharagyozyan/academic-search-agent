@@ -8,5 +8,6 @@ NODE_SELECT_CHUNKS = "select_relevant_chunks"
 ROUTE_END = "end"
 ROUTE_REFINE = "refine"
 
-MAX_SOURCES = 3
+MAX_SOURCES = 6
 MAX_RETRIES = 2
+TOP_K_CHUNKS = 25
