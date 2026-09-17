@@ -2,7 +2,7 @@ from unittest.mock import MagicMock
 
 from app.agents.graph import build_research_graph
 from app.providers.firecrawl_provider import ScrapedPage, SearchResult
-from app.schemas.answer import Claim
+from app.schemas.answer import Claim, ClaimsResponse
 
 
 def test_graph_runs_end_to_end_with_mocks():
@@ -16,16 +16,20 @@ def test_graph_runs_end_to_end_with_mocks():
 
     mock_gemini = MagicMock()
 
-    def fake_generate_claims(question, evidence_chunks):
-        return [
-            Claim(
-                text="A claim",
-                evidence_ids=[evidence_chunks[0]["chunk_id"]],
-                confidence="high",
-            )
-        ]
+    def fake_generate_answer(question, evidence_chunks):
+        return ClaimsResponse(
+            summary="Test summary",
+            claims=[
+                Claim(
+                    text="A claim",
+                    evidence_ids=[evidence_chunks[0]["chunk_id"]],
+                    confidence="high",
+                )
+            ],
+            conclusion="Test conclusion",
+        )
 
-    mock_gemini.generate_claims.side_effect = fake_generate_claims
+    mock_gemini.generate_answer.side_effect = fake_generate_answer
 
     mock_vector_store = MagicMock()
     mock_vector_store.select_relevant_chunks.side_effect = lambda question, chunks, top_k=15: chunks
@@ -38,7 +42,9 @@ def test_graph_runs_end_to_end_with_mocks():
             "search_results": [],
             "chunks": [],
             "selected_chunks": [],
+            "summary": "",
             "claims": [],
+            "conclusion": "",
             "retry_count": 0,
             "evidence_sufficient": False,
         }
@@ -62,19 +68,29 @@ def test_graph_retries_when_no_evidence_found_then_succeeds():
 
     call_count = {"n": 0}
 
-    def fake_generate_claims(question, evidence_chunks):
+    def fake_generate_answer(question, evidence_chunks):
         call_count["n"] += 1
         if call_count["n"] == 1:
-            return [Claim(text="Hallucinated", evidence_ids=["nonexistent"], confidence="low")]
-        return [
-            Claim(
-                text="Grounded claim",
-                evidence_ids=[evidence_chunks[0]["chunk_id"]],
-                confidence="high",
+            return ClaimsResponse(
+                summary="Ungrounded summary",
+                claims=[
+                    Claim(text="Hallucinated", evidence_ids=["nonexistent"], confidence="low")
+                ],
+                conclusion="Ungrounded conclusion",
             )
-        ]
+        return ClaimsResponse(
+            summary="Test summary",
+            claims=[
+                Claim(
+                    text="Grounded claim",
+                    evidence_ids=[evidence_chunks[0]["chunk_id"]],
+                    confidence="high",
+                )
+            ],
+            conclusion="Test conclusion",
+        )
 
-    mock_gemini.generate_claims.side_effect = fake_generate_claims
+    mock_gemini.generate_answer.side_effect = fake_generate_answer
 
     mock_vector_store = MagicMock()
     mock_vector_store.select_relevant_chunks.side_effect = lambda question, chunks, top_k=15: chunks
@@ -89,7 +105,9 @@ def test_graph_retries_when_no_evidence_found_then_succeeds():
             "search_results": [],
             "chunks": [],
             "selected_chunks": [],
+            "summary": "",
             "claims": [],
+            "conclusion": "",
             "retry_count": 0,
             "evidence_sufficient": False,
         }
@@ -111,9 +129,11 @@ def test_graph_stops_after_max_retries_with_no_evidence():
 
     mock_gemini = MagicMock()
     mock_gemini.refine_query.return_value = "refined query"
-    mock_gemini.generate_claims.return_value = [
-        Claim(text="Hallucinated", evidence_ids=["nonexistent"], confidence="low")
-    ]
+    mock_gemini.generate_answer.return_value = ClaimsResponse(
+        summary="Ungrounded summary",
+        claims=[Claim(text="Hallucinated", evidence_ids=["nonexistent"], confidence="low")],
+        conclusion="Ungrounded conclusion",
+    )
 
     mock_vector_store = MagicMock()
     mock_vector_store.select_relevant_chunks.side_effect = lambda question, chunks, top_k=15: chunks
@@ -128,7 +148,9 @@ def test_graph_stops_after_max_retries_with_no_evidence():
             "search_results": [],
             "chunks": [],
             "selected_chunks": [],
+            "summary": "",
             "claims": [],
+            "conclusion": "",
             "retry_count": 0,
             "evidence_sufficient": False,
         }

@@ -1,7 +1,6 @@
 from app.agents.state import ResearchState
 from app.retrieval.vector_store import ChunkVectorStore
-
-TOP_K_CHUNKS = 15
+from app.agents.constants import TOP_K_CHUNKS
 
 
 def select_relevant_chunks_node(

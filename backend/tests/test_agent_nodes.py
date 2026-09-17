@@ -1,8 +1,8 @@
 from unittest.mock import MagicMock
 
+from app.agents.constants import MAX_SOURCES
 from app.agents.nodes import generate_claims_node, retrieve_and_chunk_node, search_node
 from app.providers.firecrawl_provider import ScrapedPage, SearchResult
-from app.schemas.answer import Claim
 
 
 def test_search_node_calls_firecrawl_search():
@@ -17,7 +17,7 @@ def test_search_node_calls_firecrawl_search():
     )
 
     assert len(result["search_results"]) == 1
-    mock_firecrawl.search.assert_called_once_with("test question", limit=3)
+    mock_firecrawl.search.assert_called_once_with("test question", limit=MAX_SOURCES)
 
 
 def test_retrieve_and_chunk_node_skips_failed_scrape():
@@ -48,8 +48,10 @@ def test_generate_claims_node_returns_empty_when_no_chunks():
 
     result = generate_claims_node({"selected_chunks": []}, gemini=mock_gemini)
 
+    assert result["summary"] == ""
     assert result["claims"] == []
-    mock_gemini.generate_claims.assert_not_called()
+    assert result["conclusion"] == ""
+    mock_gemini.generate_answer.assert_not_called()
 
 
 def test_select_relevant_chunks_node_calls_vector_store():
@@ -74,7 +76,7 @@ def test_generate_claims_node_returns_empty_on_gemini_failure():
     from app.schemas.document import Chunk
 
     mock_gemini = MagicMock()
-    mock_gemini.generate_claims.side_effect = RuntimeError("503 UNAVAILABLE")
+    mock_gemini.generate_answer.side_effect = RuntimeError("503 UNAVAILABLE")
 
     chunk = Chunk(
         chunk_id="c1", document_id="doc1", text="text",
@@ -84,4 +86,6 @@ def test_generate_claims_node_returns_empty_on_gemini_failure():
 
     result = generate_claims_node(state, gemini=mock_gemini)
 
+    assert result["summary"] == ""
     assert result["claims"] == []
+    assert result["conclusion"] == ""

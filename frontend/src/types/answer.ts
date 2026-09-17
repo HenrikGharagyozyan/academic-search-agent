@@ -16,6 +16,8 @@ export interface AnswerEvidence {
 
 export interface Answer {
   question: string;
+  summary: string;
   claims: Claim[];
+  conclusion: string;
   evidence: Record<string, AnswerEvidence>;
 }

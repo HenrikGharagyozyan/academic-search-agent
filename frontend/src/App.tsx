@@ -119,14 +119,57 @@ function App() {
               Not enough evidence was found to answer this question.
             </p>
           ) : (
-            answer.claims.map((claim, i) => (
-              <ClaimText
-                key={i}
-                claim={claim}
-                evidence={answer.evidence}
-                citationNumbers={citationNumbers}
-              />
-            ))
+            <>
+              {answer.summary && (
+                <p
+                  style={{
+                    fontSize: 15,
+                    color: "var(--color-text-muted)",
+                    marginTop: 0,
+                    marginBottom: 20,
+                    fontStyle: "italic",
+                    lineHeight: 1.6,
+                  }}
+                >
+                  {answer.summary}
+                </p>
+              )}
+
+              {answer.claims.map((claim, i) => (
+                <ClaimText
+                  key={i}
+                  claim={claim}
+                  evidence={answer.evidence}
+                  citationNumbers={citationNumbers}
+                />
+              ))}
+
+              {answer.conclusion && (
+                <div
+                  style={{
+                    marginTop: 20,
+                    paddingTop: 16,
+                    borderTop: "1px solid var(--color-border)",
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: 12,
+                      fontWeight: 700,
+                      color: "var(--color-text-muted)",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.05em",
+                      marginBottom: 6,
+                    }}
+                  >
+                    Conclusion
+                  </div>
+                  <p style={{ fontSize: 16, lineHeight: 1.7, margin: 0 }}>
+                    {answer.conclusion}
+                  </p>
+                </div>
+              )}
+            </>
           )}
         </div>
       )}

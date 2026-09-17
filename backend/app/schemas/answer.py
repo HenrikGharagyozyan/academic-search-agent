@@ -12,7 +12,9 @@ class AnswerRequest(BaseModel):
 
 
 class ClaimsResponse(BaseModel):
+    summary: str
     claims: list[Claim]
+    conclusion: str
 
 
 class AnswerEvidence(BaseModel):
@@ -27,5 +29,7 @@ class AnswerEvidence(BaseModel):
 
 class Answer(BaseModel):
     question: str
+    summary: str
     claims: list[Claim]
+    conclusion: str
     evidence: dict[str, AnswerEvidence]
