@@ -1,9 +1,12 @@
+import logging
 import uuid
 
 import chromadb
 
 from app.providers.embedding_provider import EmbeddingProvider
 from app.schemas.document import Chunk
+
+logger = logging.getLogger(__name__)
 
 
 class ChunkVectorStore:
@@ -17,6 +20,19 @@ class ChunkVectorStore:
         if not chunks:
             return []
 
+        try:
+            return self._select_by_similarity(question, chunks, top_k)
+        except Exception:
+            logger.warning(
+                "Embedding/vector search failed, falling back to first %d chunks",
+                top_k,
+                exc_info=True,
+            )
+            return chunks[:top_k]
+
+    def _select_by_similarity(
+        self, question: str, chunks: list[Chunk], top_k: int
+    ) -> list[Chunk]:
         collection_name = f"chunks_{uuid.uuid4().hex}"
         collection = self._client.create_collection(name=collection_name)
 
