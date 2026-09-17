@@ -27,7 +27,9 @@ class ResearchService:
                 "search_results": [],
                 "chunks": [],
                 "selected_chunks": [],
+                "summary": "",
                 "claims": [],
+                "conclusion": "",
                 "retry_count": 0,
                 "evidence_sufficient": False,
             }
@@ -53,4 +55,10 @@ class ResearchService:
             if (c := chunks_by_id.get(eid)) is not None
         }
 
-        return Answer(question=question, claims=claims, evidence=evidence)
+        return Answer(
+            question=question,
+            summary=result["summary"],
+            claims=claims,
+            conclusion=result["conclusion"],
+            evidence=evidence,
+        )
