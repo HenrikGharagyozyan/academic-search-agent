@@ -57,7 +57,12 @@ def test_answer_drops_evidence_for_unknown_ids():
         Claim(text="Hallucinated claim", evidence_ids=["nonexistent_id"], confidence="low")
     ]
 
-    service = ResearchService(firecrawl=mock_firecrawl, gemini=mock_gemini)
+    mock_vector_store = MagicMock()
+    mock_vector_store.select_relevant_chunks.side_effect = lambda question, chunks, top_k=15: chunks
+
+    service = ResearchService(
+        firecrawl=mock_firecrawl, gemini=mock_gemini, vector_store=mock_vector_store
+    )
     result = service.answer("Some question?")
 
     assert len(result.claims) == 1
@@ -88,7 +93,12 @@ def test_answer_skips_failed_scrape_and_continues():
 
     mock_gemini.generate_claims.side_effect = fake_generate_claims
 
-    service = ResearchService(firecrawl=mock_firecrawl, gemini=mock_gemini)
+    mock_vector_store = MagicMock()
+    mock_vector_store.select_relevant_chunks.side_effect = lambda question, chunks, top_k=15: chunks
+
+    service = ResearchService(
+        firecrawl=mock_firecrawl, gemini=mock_gemini, vector_store=mock_vector_store
+    )
     result = service.answer("Some question?")
 
     assert len(result.claims) == 1
