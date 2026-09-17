@@ -38,3 +38,15 @@ def test_select_relevant_chunks_empty_input():
     store = ChunkVectorStore(embedding_provider=mock_embeddings)
 
     assert store.select_relevant_chunks("query", [], top_k=5) == []
+
+def test_select_relevant_chunks_falls_back_on_embedding_failure():
+    mock_embeddings = MagicMock()
+    mock_embeddings.embed_documents.side_effect = RuntimeError("quota exceeded")
+
+    store = ChunkVectorStore(embedding_provider=mock_embeddings)
+    chunks = [make_chunk("c1", "text one"), make_chunk("c2", "text two")]
+
+    result = store.select_relevant_chunks("query", chunks, top_k=1)
+
+    assert len(result) == 1
+    assert result[0].chunk_id == "c1"  # первый чанк как fallback
