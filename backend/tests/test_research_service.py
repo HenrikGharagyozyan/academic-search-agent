@@ -30,7 +30,10 @@ def test_answer_builds_evidence_from_used_claims():
 
     mock_gemini.generate_claims.side_effect = fake_generate_claims
 
-    service = ResearchService(firecrawl=mock_firecrawl, gemini=mock_gemini)
+    mock_vector_store = MagicMock()
+    mock_vector_store.select_relevant_chunks.side_effect = lambda question, chunks, top_k=15: chunks
+
+    service = ResearchService(firecrawl=mock_firecrawl, gemini=mock_gemini, vector_store=mock_vector_store)
     result = service.answer("Does gradient descent converge?")
 
     assert len(result.claims) == 1

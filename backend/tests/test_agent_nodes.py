@@ -46,7 +46,24 @@ def test_retrieve_and_chunk_node_skips_failed_scrape():
 def test_generate_claims_node_returns_empty_when_no_chunks():
     mock_gemini = MagicMock()
 
-    result = generate_claims_node({"chunks": []}, gemini=mock_gemini)
+    result = generate_claims_node({"selected_chunks": []}, gemini=mock_gemini)
 
     assert result["claims"] == []
     mock_gemini.generate_claims.assert_not_called()
+
+
+def test_select_relevant_chunks_node_calls_vector_store():
+    from app.agents.nodes import select_relevant_chunks_node
+    from app.schemas.document import Chunk
+
+    mock_vector_store = MagicMock()
+    chunk = Chunk(
+        chunk_id="c1", document_id="doc1", text="text",
+        start_line=1, end_line=1, source_url="https://x.com", title="X",
+    )
+    mock_vector_store.select_relevant_chunks.return_value = [chunk]
+
+    state = {"question": "q?", "chunks": [chunk]}
+    result = select_relevant_chunks_node(state, vector_store=mock_vector_store)
+
+    assert result["selected_chunks"] == [chunk]
