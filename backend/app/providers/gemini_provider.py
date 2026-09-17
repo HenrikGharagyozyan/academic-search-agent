@@ -28,9 +28,9 @@ class GeminiProvider:
         self._structured_llm = self._llm.with_structured_output(ClaimsResponse)
 
     @gemini_retry
-    def generate_claims(
+    def generate_answer(
         self, question: str, evidence_chunks: list[dict]
-    ) -> list[Claim]:
+    ) -> ClaimsResponse:
         evidence_block = "\n\n".join(
             f"[evidence_id: {c['chunk_id']}]\n{c['text']}" for c in evidence_chunks
         )
@@ -40,7 +40,7 @@ class GeminiProvider:
         )
         result: ClaimsResponse = self._structured_llm.invoke(prompt_value)
 
-        return result.claims
+        return result
 
     @gemini_retry
     def refine_query(self, question: str, previous_query: str) -> str:
