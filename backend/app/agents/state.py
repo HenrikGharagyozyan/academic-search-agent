@@ -11,6 +11,8 @@ class ResearchState(TypedDict):
     search_results: list[SearchResult]
     chunks: list[Chunk]
     selected_chunks: list[Chunk]
+    summary: str
     claims: list[Claim]
+    conclusion: str
     retry_count: int
     evidence_sufficient: bool
