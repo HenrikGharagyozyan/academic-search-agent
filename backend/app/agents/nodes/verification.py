@@ -1,18 +1,23 @@
 from app.agents.constants import MAX_RETRIES, ROUTE_END, ROUTE_REFINE
 from app.agents.state import ResearchState
+from app.schemas.answer import Claim
 
 
 def verify_evidence_node(state: ResearchState) -> dict:
-    chunks_by_id = {c.chunk_id: c for c in state["chunks"]}
+    valid_ids = {c.chunk_id for c in state["selected_chunks"]}
 
-    grounded_claims = [
-        claim
-        for claim in state["claims"]
-        if any(eid in chunks_by_id for eid in claim.evidence_ids)
-    ]
+    grounded_claims: list[Claim] = []
+    for claim in state["claims"]:
+        valid_evidence_ids = [eid for eid in claim.evidence_ids if eid in valid_ids]
+        if valid_evidence_ids:
+            grounded_claims.append(
+                claim.model_copy(update={"evidence_ids": valid_evidence_ids})
+            )
 
-    sufficient = len(grounded_claims) > 0
-    return {"evidence_sufficient": sufficient}
+    return {
+        "claims": grounded_claims,
+        "evidence_sufficient": len(grounded_claims) > 0,
+    }
 
 
 def should_refine(state: ResearchState) -> str:
