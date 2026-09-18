@@ -1,11 +1,9 @@
 from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponential
 
 from app.core.config import get_settings
-from app.providers.gemini_prompts import ANSWER_PROMPT, REFINE_PROMPT, ANSWER_QUALITY_PROMPT, RELEVANCE_GRADE_PROMPT
+from app.providers.gemini_prompts import ANSWER_PROMPT, REFINE_PROMPT
 from app.schemas.answer import Claim, ClaimsResponse
-from app.schemas.grading import RelevanceGrade, AnswerQualityGrade
 from langchain_google_genai import ChatGoogleGenerativeAI
-
 
 def _is_transient_error(exc: BaseException) -> bool:
     message = str(exc)
@@ -51,32 +49,3 @@ class GeminiProvider:
         )
         response = self._llm.invoke(prompt_value)
         return response.content.strip()
-
-    @gemini_retry
-    def grade_relevance(
-        self, question: str, chunks: list[dict]
-    ) -> RelevanceGrade:
-        chunks_block = "\n\n".join(
-            f"[chunk_id: {c['chunk_id']}]\n{c['text']}" for c in chunks
-        )
-        prompt_value = RELEVANCE_GRADE_PROMPT.invoke(
-            {"question": question, "chunks_block": chunks_block}
-        )
-        structured = self._llm.with_structured_output(RelevanceGrade)
-        return structured.invoke(prompt_value)
-
-    @gemini_retry
-    def grade_answer_quality(
-        self, question: str, summary: str, claims: list[Claim], conclusion: str
-    ) -> AnswerQualityGrade:
-        claims_block = "\n".join(f"- {c.text}" for c in claims)
-        prompt_value = ANSWER_QUALITY_PROMPT.invoke(
-            {
-                "question": question,
-                "summary": summary,
-                "claims_block": claims_block,
-                "conclusion": conclusion,
-            }
-        )
-        structured = self._llm.with_structured_output(AnswerQualityGrade)
-        return structured.invoke(prompt_value)

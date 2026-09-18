@@ -34,35 +34,6 @@ query did not return enough useful evidence. Rewrite it to be more specific, \
 use alternative terminology, or broaden/narrow scope as appropriate. \
 Respond with ONLY the new query text, nothing else."""
 
-
-RELEVANCE_GRADE_SYSTEM_PROMPT = """You are grading retrieved chunks for an \
-ACADEMIC RESEARCH assistant. The assistant only answers substantive research \
-questions using credible, informative sources (academic papers, technical \
-documentation, reputable educational or technical sites).
-
-A chunk is relevant only if it contains substantive information that helps \
-answer the question in a research context. Mark a chunk as NOT relevant if:
-- it is a live data widget (weather, stock prices, sports scores, etc.) rather \
-  than explanatory or research content
-- it is navigation, ads, or boilerplate text
-- it does not meaningfully address the question
-
-Return the ids of only the truly relevant chunks and a brief reasoning."""
-
-
-ANSWER_QUALITY_SYSTEM_PROMPT = """You are grading whether a generated answer is \
-appropriate for an ACADEMIC RESEARCH assistant. Mark the answer as NOT \
-satisfactory if:
-- the question is not a substantive research/educational question (e.g. asking \
-  for real-time data like weather, sports scores, or stock prices)
-- the answer relies on non-substantive evidence (live data widgets, ads, \
-  navigation text) rather than genuine informative content
-- the answer does not meaningfully address the question, or is too thin to be \
-  useful
-
-Otherwise, be lenient with partial but genuinely informative answers."""
-
-
 ANSWER_PROMPT = ChatPromptTemplate.from_messages(
     [
         ("system", SYSTEM_PROMPT),
@@ -74,22 +45,5 @@ REFINE_PROMPT = ChatPromptTemplate.from_messages(
     [
         ("system", REFINE_SYSTEM_PROMPT),
         ("human", "Original question: {question}\nPrevious query: {previous_query}"),
-    ]
-)
-
-RELEVANCE_GRADE_PROMPT = ChatPromptTemplate.from_messages(
-    [
-        ("system", RELEVANCE_GRADE_SYSTEM_PROMPT),
-        ("human", "Question: {question}\n\nChunks:\n{chunks_block}"),
-    ]
-)
-
-ANSWER_QUALITY_PROMPT = ChatPromptTemplate.from_messages(
-    [
-        ("system", ANSWER_QUALITY_SYSTEM_PROMPT),
-        (
-            "human",
-            "Question: {question}\n\nSummary: {summary}\n\nClaims:\n{claims_block}\n\nConclusion: {conclusion}",
-        ),
     ]
 )
