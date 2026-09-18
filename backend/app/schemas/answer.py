@@ -33,3 +33,4 @@ class Answer(BaseModel):
     claims: list[Claim]
     conclusion: str
     evidence: dict[str, AnswerEvidence]
+    evidence_sufficient: bool
