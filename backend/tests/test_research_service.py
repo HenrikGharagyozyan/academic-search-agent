@@ -47,6 +47,7 @@ def test_answer_builds_evidence_from_used_claims():
     evidence_item = list(result.evidence.values())[0]
     assert evidence_item.source_url == "https://example.com"
     assert evidence_item.title == "Paper Title"
+    assert result.evidence_sufficient is True
 
 
 def test_answer_drops_evidence_for_unknown_ids():
@@ -77,6 +78,7 @@ def test_answer_drops_evidence_for_unknown_ids():
 
     assert len(result.claims) == 1
     assert len(result.evidence) == 0  # fake id in evidence
+    assert result.evidence_sufficient is False
 
 
 def test_answer_skips_failed_scrape_and_continues():
