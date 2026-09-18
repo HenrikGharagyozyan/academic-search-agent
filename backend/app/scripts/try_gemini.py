@@ -23,10 +23,14 @@ if __name__ == "__main__":
         },
     ]
 
-    claims = provider.generate_claims(question, evidence_chunks)
+    result = provider.generate_answer(question, evidence_chunks)
 
-    for claim in claims:
+    print(f"Summary: {result.summary}\n")
+
+    for claim in result.claims:
         print(f"- {claim.text}")
         print(f"  evidence_ids: {claim.evidence_ids}")
         print(f"  confidence: {claim.confidence}")
         print()
+
+    print(f"Conclusion: {result.conclusion}")
