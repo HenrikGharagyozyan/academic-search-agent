@@ -23,3 +23,29 @@ def test_scrape_parses_page(mock_app_cls, monkeypatch):
     assert page.title == "Test Page"
     assert page.markdown == "# Some content"
     assert page.url == "https://example.com"
+
+
+@patch("app.providers.firecrawl_provider.FirecrawlApp")
+def test_scrape_uses_cache_on_second_call(mock_app_cls):
+    provider = FirecrawlProvider()
+
+    call_count = {"n": 0}
+
+    class FakeMetadata:
+        title = "Cached Title"
+
+    class FakeResponse:
+        metadata = FakeMetadata()
+        markdown = "content"
+
+    def fake_scrape(url, formats):
+        call_count["n"] += 1
+        return FakeResponse()
+
+    provider._client.scrape = fake_scrape
+
+    first = provider.scrape("https://example.com")
+    second = provider.scrape("https://example.com")
+
+    assert first == second
+    assert call_count["n"] == 1
