@@ -1,6 +1,7 @@
 import logging
 
 from app.agents.graph import build_research_graph
+from app.core.exceptions import ResearchServiceError, UpstreamServiceError
 from app.providers.firecrawl_provider import FirecrawlProvider
 from app.providers.gemini_provider import GeminiProvider
 from app.retrieval.vector_store import ChunkVectorStore
@@ -8,6 +9,8 @@ from app.schemas.answer import Answer, AnswerEvidence
 from app.schemas.document import Chunk
 
 logger = logging.getLogger(__name__)
+
+RECURSION_LIMIT = 50  
 
 
 class ResearchService:
@@ -20,20 +23,27 @@ class ResearchService:
         self._graph = build_research_graph(firecrawl, gemini, vector_store)
 
     def answer(self, question: str) -> Answer:
-        result = self._graph.invoke(
-            {
-                "question": question,
-                "search_query": question,
-                "search_results": [],
-                "chunks": [],
-                "selected_chunks": [],
-                "summary": "",
-                "claims": [],
-                "conclusion": "",
-                "retry_count": 0,
-                "evidence_sufficient": False,
-            }
-        )
+        try:
+            result = self._graph.invoke(
+                {
+                    "question": question,
+                    "search_query": question,
+                    "search_results": [],
+                    "chunks": [],
+                    "selected_chunks": [],
+                    "summary": "",
+                    "claims": [],
+                    "conclusion": "",
+                    "retry_count": 0,
+                    "evidence_sufficient": False,
+                },
+                config={"recursion_limit": RECURSION_LIMIT},
+            )
+        except UpstreamServiceError:
+            raise
+        except Exception as exc:
+            logger.error("Research pipeline failed for question=%r: %s", question, exc)
+            raise ResearchServiceError(f"Research pipeline failed: {exc}") from exc
 
         chunks: list[Chunk] = result["chunks"]
         claims = result["claims"]
