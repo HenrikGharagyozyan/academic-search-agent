@@ -7,6 +7,6 @@ router = APIRouter(prefix="/api/v1", tags=["answer"])
 
 
 @router.post("/answer", response_model=Answer)
-async def answer(request: AnswerRequest) -> Answer:
+def answer(request: AnswerRequest) -> Answer:
     service = ResearchService()
     return service.answer(request.question)
