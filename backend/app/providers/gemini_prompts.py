@@ -39,7 +39,6 @@ query did not return enough useful evidence. Rewrite it to be more specific, \
 use alternative terminology, or broaden/narrow scope as appropriate. \
 Respond with ONLY the new query text, nothing else."""
 
-
 RELEVANCE_GRADE_SYSTEM_PROMPT = """You are grading retrieved chunks for an \
 ACADEMIC RESEARCH assistant. The assistant only answers substantive research \
 questions using credible, informative sources (academic papers, technical \
@@ -65,7 +64,6 @@ satisfactory if:
   useful
 
 Otherwise, be lenient with partial but genuinely informative answers."""
-
 
 ANSWER_PROMPT = ChatPromptTemplate.from_messages(
     [
