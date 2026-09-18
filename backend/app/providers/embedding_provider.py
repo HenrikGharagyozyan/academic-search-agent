@@ -7,7 +7,7 @@ class EmbeddingProvider:
     def __init__(self) -> None:
         settings = get_settings()
         self._embeddings = GoogleGenerativeAIEmbeddings(
-            model="models/gemini-embedding-2",
+            model="models/gemini-embedding-001",
             google_api_key=settings.gemini_api_key,
         )
 

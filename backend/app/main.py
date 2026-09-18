@@ -1,3 +1,4 @@
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -7,6 +8,11 @@ from app.api.routes.search import router as search_router
 from app.api.routes.documents import router as documents_router
 from app.api.routes.answer import router as answer_router
 from app.services.research_service import ResearchService
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+)
 
 
 @asynccontextmanager

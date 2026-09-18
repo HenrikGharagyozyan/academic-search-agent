@@ -1,10 +1,12 @@
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
 class Claim(BaseModel):
     text: str
     evidence_ids: list[str]
-    confidence: str  # "high" | "medium" | "low"
+    confidence: Literal["high", "medium", "low"]
 
 
 class AnswerRequest(BaseModel):

@@ -50,7 +50,7 @@ class GeminiProvider:
             {"question": question, "previous_query": previous_query}
         )
         response = self._llm.invoke(prompt_value)
-        return response.content.strip()
+        return response.text.strip()
 
     @gemini_retry
     def grade_relevance(
