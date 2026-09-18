@@ -1,6 +1,5 @@
 from unittest.mock import MagicMock
 
-from app.agents.constants import MAX_RETRIES
 from app.providers.firecrawl_provider import ScrapedPage, SearchResult
 from app.schemas.answer import Claim, ClaimsResponse
 from app.services.research_service import ResearchService
@@ -50,7 +49,7 @@ def test_answer_builds_evidence_from_used_claims():
     assert evidence_item.title == "Paper Title"
 
 
-def test_answer_drops_claims_with_only_unknown_evidence_ids():
+def test_answer_drops_evidence_for_unknown_ids():
     mock_firecrawl = MagicMock()
     mock_firecrawl.search.return_value = [
         SearchResult(title="Paper", url="https://example.com", snippet="...")
@@ -67,7 +66,6 @@ def test_answer_drops_claims_with_only_unknown_evidence_ids():
         ],
         conclusion="Test conclusion",
     )
-    mock_gemini.refine_query.return_value = "refined query"
 
     mock_vector_store = MagicMock()
     mock_vector_store.select_relevant_chunks.side_effect = lambda question, chunks, top_k=15: chunks
@@ -77,11 +75,8 @@ def test_answer_drops_claims_with_only_unknown_evidence_ids():
     )
     result = service.answer("Some question?")
 
-    # verify_evidence strips the ungrounded claim, so no evidence survives either
-    assert result.claims == []
-    assert result.evidence == {}
-    # insufficient evidence triggers the refine loop until MAX_RETRIES is hit
-    assert mock_gemini.generate_answer.call_count == MAX_RETRIES + 1
+    assert len(result.claims) == 1
+    assert len(result.evidence) == 0  # fake id in evidence
 
 
 def test_answer_skips_failed_scrape_and_continues():

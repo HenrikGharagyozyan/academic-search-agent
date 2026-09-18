@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 
 class Claim(BaseModel):
@@ -8,7 +8,7 @@ class Claim(BaseModel):
 
 
 class AnswerRequest(BaseModel):
-    question: str = Field(min_length=3, max_length=500)
+    question: str
 
 
 class ClaimsResponse(BaseModel):
