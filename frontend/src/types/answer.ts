@@ -20,4 +20,5 @@ export interface Answer {
   claims: Claim[];
   conclusion: string;
   evidence: Record<string, AnswerEvidence>;
+  evidence_sufficient: boolean;
 }
