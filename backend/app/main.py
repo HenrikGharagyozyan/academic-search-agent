@@ -1,11 +1,21 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes.search import router as search_router
 from app.api.routes.documents import router as documents_router
 from app.api.routes.answer import router as answer_router
+from app.services.research_service import ResearchService
 
-app = FastAPI(title="Academic Search")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    app.state.research_service = ResearchService()
+    yield
+
+
+app = FastAPI(lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
