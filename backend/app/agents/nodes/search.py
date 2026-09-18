@@ -1,10 +1,19 @@
+import logging
+
 from app.agents.constants import MAX_SOURCES
-from app.agents.state import ResearchState
+from app.core.exceptions import UpstreamServiceError
 from app.providers.firecrawl_provider import FirecrawlProvider
 
+logger = logging.getLogger(__name__)
 
-def search_node(
-    state: ResearchState, firecrawl: FirecrawlProvider, limit: int = MAX_SOURCES
-) -> dict:
-    results = firecrawl.search(state["search_query"], limit=limit)
+
+def search_node(state: dict, firecrawl: FirecrawlProvider) -> dict:
+    query = state.get("search_query") or state["question"]
+
+    try:
+        results = firecrawl.search(query, limit=MAX_SOURCES)
+    except Exception as exc:
+        logger.error("Firecrawl search failed for query=%r: %s", query, exc)
+        raise UpstreamServiceError(f"Search provider failed: {exc}") from exc
+
     return {"search_results": results}

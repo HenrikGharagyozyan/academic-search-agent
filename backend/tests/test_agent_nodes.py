@@ -1,8 +1,10 @@
 from unittest.mock import MagicMock
+import pytest
 
 from app.agents.constants import MAX_SOURCES
 from app.agents.nodes import generate_claims_node, retrieve_and_chunk_node, search_node
 from app.providers.firecrawl_provider import ScrapedPage, SearchResult
+from app.core.exceptions import UpstreamServiceError
 
 
 def test_search_node_calls_firecrawl_search():
@@ -89,3 +91,14 @@ def test_generate_claims_node_returns_empty_on_gemini_failure():
     assert result["summary"] == ""
     assert result["claims"] == []
     assert result["conclusion"] == ""
+
+
+def test_search_node_raises_upstream_error_on_firecrawl_failure():
+    mock_firecrawl = MagicMock()
+    mock_firecrawl.search.side_effect = RuntimeError("boom")
+
+    with pytest.raises(UpstreamServiceError):
+        search_node(
+            {"question": "test question", "search_query": "test question"},
+            firecrawl=mock_firecrawl,
+        )
