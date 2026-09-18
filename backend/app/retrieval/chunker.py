@@ -1,8 +1,10 @@
+import re
 import uuid
 
 from app.schemas.document import Chunk, DocumentLine
 
 MAX_LINES_PER_CHUNK = 20
+CHUNK_OVERLAP_LINES = 3
 
 
 def chunk_lines(
@@ -30,8 +32,7 @@ def chunk_lines(
 
     chunks: list[Chunk] = []
     for paragraph in paragraphs:
-        for i in range(0, len(paragraph), MAX_LINES_PER_CHUNK):
-            piece = paragraph[i : i + MAX_LINES_PER_CHUNK]
+        for piece in _split_with_overlap(paragraph, MAX_LINES_PER_CHUNK, CHUNK_OVERLAP_LINES):
             chunks.append(
                 Chunk(
                     chunk_id=str(uuid.uuid4()),
@@ -45,3 +46,45 @@ def chunk_lines(
             )
 
     return chunks
+
+
+def _split_with_overlap(
+    paragraph: list[DocumentLine], max_lines: int, overlap: int
+) -> list[list[DocumentLine]]:
+    if len(paragraph) <= max_lines:
+        return [paragraph]
+
+    step = max(max_lines - overlap, 1)
+    pieces: list[list[DocumentLine]] = []
+    i = 0
+    n = len(paragraph)
+
+    while i < n:
+        piece = paragraph[i : i + max_lines]
+        pieces.append(piece)
+        if i + max_lines >= n:
+            break
+        i += step
+
+    return pieces
+
+
+def _normalize_for_dedup(text: str) -> str:
+    return re.sub(r"\s+", " ", text).strip().lower()
+
+
+def deduplicate_chunks(chunks: list[Chunk]) -> list[Chunk]:
+    """Drop chunks whose text is identical (after whitespace/case normalization)
+    to one already seen — catches repeated boilerplate (nav, footers, cookie
+    notices) that shows up across multiple scraped pages."""
+    seen: set[str] = set()
+    deduped: list[Chunk] = []
+
+    for chunk in chunks:
+        key = _normalize_for_dedup(chunk.text)
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(chunk)
+
+    return deduped
