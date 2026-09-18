@@ -3,7 +3,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from app.agents.state import ResearchState
 from app.providers.firecrawl_provider import FirecrawlProvider, ScrapedPage, SearchResult
-from app.retrieval.chunker import chunk_lines
+from app.retrieval.chunker import chunk_lines, deduplicate_chunks
 from app.retrieval.text_splitter import split_into_lines
 from app.schemas.document import Chunk
 
@@ -51,4 +51,4 @@ def retrieve_and_chunk_node(state: ResearchState, firecrawl: FirecrawlProvider) 
             )
             all_chunks.extend(chunks)
 
-    return {"chunks": all_chunks}
+    return {"chunks": deduplicate_chunks(all_chunks)}
