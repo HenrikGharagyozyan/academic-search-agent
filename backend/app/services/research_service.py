@@ -71,4 +71,5 @@ class ResearchService:
             claims=claims,
             conclusion=result["conclusion"],
             evidence=evidence,
+            evidence_sufficient=result.get("evidence_sufficient", False),
         )
