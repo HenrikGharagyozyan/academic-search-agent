@@ -57,7 +57,8 @@ class FirecrawlProvider:
             markdown=response.markdown or "",
         )
 
-        with self._scrape_cache_lock:
-            self._scrape_cache[url] = page
+        if page.markdown:
+            with self._scrape_cache_lock:
+                self._scrape_cache[url] = page
 
         return page

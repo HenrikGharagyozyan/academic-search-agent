@@ -1,15 +1,15 @@
 import logging
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor
 
 from app.agents.state import ResearchState
 from app.providers.firecrawl_provider import FirecrawlProvider, ScrapedPage, SearchResult
 from app.retrieval.chunker import chunk_lines, deduplicate_chunks
 from app.retrieval.text_splitter import split_into_lines
 from app.schemas.document import Chunk
+from app.agents.constants import MAX_SCRAPE_WORKERS
 
 logger = logging.getLogger(__name__)
 
-MAX_SCRAPE_WORKERS = 6
 
 
 def _scrape_result(
@@ -32,12 +32,10 @@ def retrieve_and_chunk_node(state: ResearchState, firecrawl: FirecrawlProvider) 
 
     max_workers = min(len(search_results), MAX_SCRAPE_WORKERS)
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = [
-            executor.submit(_scrape_result, firecrawl, result)
-            for result in search_results
-        ]
-        for future in as_completed(futures):
-            outcome = future.result()
+        outcomes = executor.map(
+            lambda result: _scrape_result(firecrawl, result), search_results
+        )
+        for outcome in outcomes:
             if outcome is None:
                 continue
 

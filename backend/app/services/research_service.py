@@ -10,7 +10,7 @@ from app.schemas.document import Chunk
 
 logger = logging.getLogger(__name__)
 
-RECURSION_LIMIT = 50  
+RECURSION_LIMIT = 50
 
 
 class ResearchService:

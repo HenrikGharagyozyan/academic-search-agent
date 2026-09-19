@@ -1,4 +1,7 @@
+from unittest.mock import MagicMock
+
 from app.agents.nodes import verify_evidence_node
+from app.agents.nodes import refine_query_node
 from app.schemas.answer import Claim
 from app.schemas.document import Chunk
 
@@ -48,3 +51,25 @@ def test_verify_evidence_insufficient_when_no_claims():
     result = verify_evidence_node(state)
 
     assert result["evidence_sufficient"] is False
+
+
+def test_refine_query_node_returns_new_query_and_increments_retry():
+    mock_gemini = MagicMock()
+    mock_gemini.refine_query.return_value = "refined query"
+
+    state = {"question": "q?", "search_query": "old query", "retry_count": 0}
+    result = refine_query_node(state, gemini=mock_gemini)
+
+    assert result["search_query"] == "refined query"
+    assert result["retry_count"] == 1
+
+
+def test_refine_query_node_keeps_previous_query_on_gemini_failure():
+    mock_gemini = MagicMock()
+    mock_gemini.refine_query.side_effect = RuntimeError("boom")
+
+    state = {"question": "q?", "search_query": "old query", "retry_count": 1}
+    result = refine_query_node(state, gemini=mock_gemini)
+
+    assert result["search_query"] == "old query"
+    assert result["retry_count"] == 2

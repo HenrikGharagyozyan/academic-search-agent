@@ -1,18 +1,15 @@
-# tests/conftest.py
 from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
 
-from app.api.deps import get_research_service
+from app.api.deps import get_document_service, get_research_service, get_search_service
 from app.core.config import get_settings
 from app.main import app
 
 
 @pytest.fixture(autouse=True)
 def fake_api_keys(monkeypatch):
-    # Environment variables take precedence over backend/.env, so tests never pick up
-    # real keys: local runs behave exactly like CI, and nothing can hit a paid API.
     monkeypatch.setenv("FIRECRAWL_API_KEY", "test-key")
     monkeypatch.setenv("GEMINI_API_KEY", "test-key")
 
@@ -30,11 +27,25 @@ def mock_research_service():
 
 
 @pytest.fixture
-def client(mock_research_service):
-    # The lifespan would otherwise build a real ResearchService (Firecrawl, Gemini,
-    # Chroma): it needs API keys and every request would hit the real network.
-    with patch("app.main.ResearchService", return_value=mock_research_service):
+def mock_search_service():
+    return MagicMock()
+
+
+@pytest.fixture
+def mock_document_service():
+    return MagicMock()
+
+
+@pytest.fixture
+def client(mock_research_service, mock_search_service, mock_document_service):
+    with (
+        patch("app.main.ResearchService", return_value=mock_research_service),
+        patch("app.main.SearchService", return_value=mock_search_service),
+        patch("app.main.DocumentService", return_value=mock_document_service),
+    ):
         app.dependency_overrides[get_research_service] = lambda: mock_research_service
+        app.dependency_overrides[get_search_service] = lambda: mock_search_service
+        app.dependency_overrides[get_document_service] = lambda: mock_document_service
         try:
             with TestClient(app) as c:
                 yield c
