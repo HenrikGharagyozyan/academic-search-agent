@@ -1,5 +1,8 @@
 import logging
+from collections.abc import Generator
+from typing import Any
 
+from app.agents.constants import STAGE_LABELS
 from app.agents.graph import build_research_graph
 from app.core.exceptions import ResearchServiceError, UpstreamServiceError
 from app.providers.firecrawl_provider import FirecrawlProvider
@@ -22,21 +25,25 @@ class ResearchService:
     ) -> None:
         self._graph = build_research_graph(firecrawl, gemini, vector_store)
 
+    @staticmethod
+    def _initial_state(question: str) -> dict[str, Any]:
+        return {
+            "question": question,
+            "search_query": question,
+            "search_results": [],
+            "chunks": [],
+            "selected_chunks": [],
+            "summary": "",
+            "claims": [],
+            "conclusion": "",
+            "retry_count": 0,
+            "evidence_sufficient": False,
+        }
+
     def answer(self, question: str) -> Answer:
         try:
             result = self._graph.invoke(
-                {
-                    "question": question,
-                    "search_query": question,
-                    "search_results": [],
-                    "chunks": [],
-                    "selected_chunks": [],
-                    "summary": "",
-                    "claims": [],
-                    "conclusion": "",
-                    "retry_count": 0,
-                    "evidence_sufficient": False,
-                },
+                self._initial_state(question),
                 config={"recursion_limit": RECURSION_LIMIT},
             )
         except UpstreamServiceError:
@@ -45,6 +52,41 @@ class ResearchService:
             logger.error("Research pipeline failed for question=%r: %s", question, exc)
             raise ResearchServiceError(f"Research pipeline failed: {exc}") from exc
 
+        return self._build_answer(question, result)
+
+    def stream_answer(self, question: str) -> Generator[dict[str, Any], None, None]:
+        """Yields SSE-ready events ({"event": ..., "data": ...}): one "progress"
+        event per completed graph node, then a final "result" event with the
+        full Answer, or an "error" event if the pipeline fails."""
+        state = self._initial_state(question)
+
+        try:
+            for update in self._graph.stream(
+                state,
+                config={"recursion_limit": RECURSION_LIMIT},
+                stream_mode="updates",
+            ):
+                for node_name, node_output in update.items():
+                    state.update(node_output)
+                    yield {
+                        "event": "progress",
+                        "data": {
+                            "stage": node_name,
+                            "label": STAGE_LABELS.get(node_name, node_name),
+                        },
+                    }
+        except UpstreamServiceError as exc:
+            yield {"event": "error", "data": {"detail": str(exc)}}
+            return
+        except Exception as exc:
+            logger.error("Streaming research pipeline failed for question=%r: %s", question, exc)
+            yield {"event": "error", "data": {"detail": "Research pipeline failed"}}
+            return
+
+        answer = self._build_answer(question, state)
+        yield {"event": "result", "data": answer.model_dump(mode="json")}
+
+    def _build_answer(self, question: str, result: dict[str, Any]) -> Answer:
         chunks: list[Chunk] = result["chunks"]
         claims = result["claims"]
 
