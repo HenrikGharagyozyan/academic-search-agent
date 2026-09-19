@@ -13,21 +13,25 @@ flowchart LR
     Q([question]) --> S[search]
     S --> R[retrieve_and_chunk]
     R --> SEL[select_relevant_chunks]
-    SEL --> G[generate_claims]
-    G --> V{verify_evidence}
-    V -- grounded claims --> A([answer])
-    V -- none grounded,<br/>retries left --> RF[refine_query]
+    SEL --> GR[grade_relevance]
+    GR --> G[generate_claims]
+    G --> V[verify_evidence]
+    V --> GA{grade_answer}
+    GA -- satisfactory --> A([answer])
+    GA -- insufficient,<br/>retries left --> RF[refine_query]
     RF --> S
 ```
 
 | Step | What it does |
 |---|---|
 | **search** | Firecrawl web search for up to `MAX_SOURCES` (6) pages. |
-| **retrieve_and_chunk** | Scrapes each page to Markdown, splits it into numbered lines, and groups the lines into paragraph chunks of at most 20 lines. Each chunk keeps its URL, title, and line range. A page that fails to scrape is skipped and the run continues. |
-| **select_relevant_chunks** | Embeds the chunks with `gemini-embedding-2` into a temporary in-memory Chroma collection and keeps the `TOP_K_CHUNKS` (25) closest to the question. If embedding fails, it keeps the first 25 chunks instead. |
+| **retrieve_and_chunk** | Scrapes each page to Markdown in parallel, splits it into numbered lines, and groups the lines into overlapping paragraph chunks of at most 20 lines. Scraped pages are cached in-memory by URL for an hour. A page that fails to scrape is skipped and the run continues. |
+| **select_relevant_chunks** | Embeds the chunks with `gemini-embedding-001` into a temporary in-memory Chroma collection and keeps the `TOP_K_CHUNKS` (25) closest to the question. If embedding fails, it keeps the first 25 chunks instead. |
+| **grade_relevance** | Gemini judges which selected chunks are actually relevant to the question and drops the rest (or keeps them all, if the judge rejects everything, rather than leaving no context). |
 | **generate_claims** | `gemini-3.6-flash` returns structured output: a `summary`, a list of `claims` (each with `evidence_ids` and a `confidence`), and a `conclusion`. |
 | **verify_evidence** | Removes evidence IDs that don't match a chunk that was actually selected, and drops any claim left with no valid evidence. |
-| **refine_query** | Runs only if no claims survived verification: Gemini rewrites the search query and the loop runs again, up to `MAX_RETRIES` (2) times. |
+| **grade_answer** | Gemini judges whether the generated answer is a satisfactory, on-topic response — can mark it insufficient even if the evidence was grounded. |
+| **refine_query** | Runs only if the answer was judged insufficient: Gemini rewrites the search query and the loop runs again, up to `MAX_RETRIES` (2) times. |
 
 You can tune the pipeline in [`backend/app/agents/constants.py`](backend/app/agents/constants.py).
 
@@ -38,7 +42,7 @@ You can tune the pipeline in [`backend/app/agents/constants.py`](backend/app/age
 | Backend | Python 3.12, FastAPI, Pydantic, [uv](https://docs.astral.sh/uv/) |
 | Agent orchestration | LangGraph, LangChain |
 | Search & scraping | [Firecrawl](https://firecrawl.dev) |
-| LLM & embeddings | Google Gemini (`gemini-3.6-flash`, `gemini-embedding-2`) |
+| LLM & embeddings | Google Gemini (`gemini-3.6-flash`, `gemini-embedding-001`) |
 | Vector search | Chroma (in-memory, per request) |
 | Frontend | React 19, TypeScript, Vite 8 |
 | Deployment | Docker Compose, nginx |
@@ -130,7 +134,8 @@ curl -X POST http://127.0.0.1:8000/api/v1/answer \
       "chunk_id": "3f2c…", "document_id": "https://…", "text": "…",
       "source_url": "https://…", "title": "…", "start_line": 41, "end_line": 58
     }
-  }
+  },
+  "evidence_sufficient": true
 }
 ```
 
@@ -163,7 +168,9 @@ academic-search-agent/
 ## Limitations
 
 - **`/answer` is synchronous and can be slow.** A full run (search, scrape, embed, generate, and possibly two refine loops) can take a minute or more. The nginx proxy timeout is 120 s.
-- **Nothing is persisted.** Each request builds and discards its own vector collection; there is no caching between questions.
+- **Scraped pages are cached, nothing else is.** Each `/answer` request re-embeds
+  its chunks and builds a fresh in-memory vector collection; only the raw
+  scraped page content is cached (by URL, one hour TTL).
 - **Gemini free-tier quotas are small.** Each answer makes several Gemini calls (embeddings, generation, and possibly refine calls), so you can hit a free-tier daily limit quickly. Rate-limit and 503 errors are retried with backoff.
 
 ## Contributing
