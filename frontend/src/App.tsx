@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { askQuestion } from "./api/research";
+import { askQuestion, streamQuestion } from "./api/research";
 import type { Answer } from "./types/answer";
 import { ClaimText } from "./components/ClaimText";
 import { buildCitationNumbers } from "./utils/citations";
@@ -9,6 +9,7 @@ function App() {
   const [answer, setAnswer] = useState<Answer | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [stage, setStage] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -17,13 +18,23 @@ function App() {
     setLoading(true);
     setError(null);
     setAnswer(null);
+    setStage(null);
+
     try {
-      const result = await askQuestion(question);
-      setAnswer(result);
+      for await (const event of streamQuestion(question)) {
+        if (event.type === "progress") {
+          setStage(event.data.label);
+        } else if (event.type === "result") {
+          setAnswer(event.data);
+        } else if (event.type === "error") {
+          setError(event.data.detail);
+        }
+      }
     } catch {
       setError("Something went wrong. Please try again.");
     } finally {
       setLoading(false);
+      setStage(null);
     }
   };
 
@@ -101,6 +112,18 @@ function App() {
 
       {error && (
         <p style={{ color: "#dc2626", marginTop: 16, fontSize: 14 }}>{error}</p>
+      )}
+      {loading && stage && (
+        <p
+          style={{
+            textAlign: "center",
+            color: "var(--color-text-muted)",
+            marginTop: 16,
+            fontSize: 14,
+          }}
+        >
+          {stage}…
+        </p>
       )}
 
       {answer && (
