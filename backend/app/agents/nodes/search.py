@@ -1,5 +1,6 @@
 import logging
 
+from app.agents.state import ResearchState
 from app.agents.constants import MAX_SOURCES
 from app.core.exceptions import UpstreamServiceError
 from app.providers.firecrawl_provider import FirecrawlProvider
@@ -7,7 +8,7 @@ from app.providers.firecrawl_provider import FirecrawlProvider
 logger = logging.getLogger(__name__)
 
 
-def search_node(state: dict, firecrawl: FirecrawlProvider) -> dict:
+def search_node(state: ResearchState, firecrawl: FirecrawlProvider) -> dict:
     query = state.get("search_query") or state["question"]
 
     try:
