@@ -7,7 +7,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.routes.search import router as search_router
 from app.api.routes.documents import router as documents_router
 from app.api.routes.answer import router as answer_router
+from app.providers.firecrawl_provider import FirecrawlProvider
+from app.services.document_service import DocumentService
 from app.services.research_service import ResearchService
+from app.services.search_service import SearchService
 
 logging.basicConfig(
     level=logging.INFO,
@@ -17,11 +20,14 @@ logging.basicConfig(
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    app.state.research_service = ResearchService()
+    firecrawl = FirecrawlProvider()
+    app.state.research_service = ResearchService(firecrawl=firecrawl)
+    app.state.search_service = SearchService(provider=firecrawl)
+    app.state.document_service = DocumentService(provider=firecrawl)
     yield
 
 
-app = FastAPI(lifespan=lifespan)
+app = FastAPI(title="Academic Search Agent API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
