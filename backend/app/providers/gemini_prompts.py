@@ -23,8 +23,6 @@ single source states it directly and unambiguously; "medium" when only one \
 source supports it, the source is indirect/implicit, or sources partially \
 disagree; "low" when the evidence is weak, conflicting, or barely touches \
 the claim.
-   - If the evidence does not answer the question, say so explicitly in a \
-claim with an empty evidence_ids list and confidence "low".
 
 3. CONCLUSION: A short synthesis (2-4 sentences) that draws together what the \
 claims show as a whole — the overall picture, any notable gaps or tensions \
