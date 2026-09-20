@@ -52,7 +52,7 @@ def test_deduplicate_chunks_drops_repeated_boilerplate():
     chunks = [
         make_chunk("Cookie policy. Accept all.", "https://a.com"),
         make_chunk("Real unique research content here.", "https://a.com"),
-        make_chunk("Cookie policy.   Accept all.", "https://b.com"),  # тот же текст с другим пробелом
+        make_chunk("Cookie policy.   Accept all.", "https://b.com"),  # same text with different spacing
     ]
 
     result = deduplicate_chunks(chunks)
