@@ -49,7 +49,7 @@ class ResearchService:
         except UpstreamServiceError:
             raise
         except Exception as exc:
-            logger.error("Research pipeline failed for question=%r: %s", question, exc)
+            logger.error("Research pipeline failed for question=%r: %s", question, exc, exc_info=True)
             raise ResearchServiceError(f"Research pipeline failed: {exc}") from exc
 
         return self._build_answer(question, result)
@@ -67,6 +67,8 @@ class ResearchService:
                 stream_mode="updates",
             ):
                 for node_name, node_output in update.items():
+                    if node_output is None:
+                        continue
                     state.update(node_output)
                     yield {
                         "event": "progress",
@@ -79,7 +81,7 @@ class ResearchService:
             yield {"event": "error", "data": {"detail": str(exc)}}
             return
         except Exception as exc:
-            logger.error("Streaming research pipeline failed for question=%r: %s", question, exc)
+            logger.error("Streaming research pipeline failed for question=%r: %s", question, exc, exc_info=True)
             yield {"event": "error", "data": {"detail": "Research pipeline failed"}}
             return
 
