@@ -11,11 +11,12 @@ from app.schemas.grading import RelevanceGrade
 
 @pytest.fixture
 def keep_all_chunks_relevant():
-    """side_effect для gemini.grade_relevance: судья признаёт релевантными все чанки.
+    """side_effect for gemini.grade_relevance: the judge accepts every chunk.
 
-    Тесты пайплайна проверяют не отбор чанков, а то, что происходит дальше, —
-    поэтому судью нужно замокать явно. Иначе MagicMock отдаёт пустой
-    relevant_chunk_ids, узел отбрасывает всё, и до генерации ничего не доходит.
+    Pipeline tests exercise what happens after chunk selection, not the
+    selection itself, so the judge has to be mocked explicitly. Otherwise
+    MagicMock returns an empty relevant_chunk_ids, the node drops everything,
+    and nothing ever reaches generation.
     """
 
     def _grade(question, chunks):
