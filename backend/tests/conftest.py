@@ -6,6 +6,25 @@ from fastapi.testclient import TestClient
 from app.api.deps import get_document_service, get_research_service, get_search_service
 from app.core.config import get_settings
 from app.main import app
+from app.schemas.grading import RelevanceGrade
+
+
+@pytest.fixture
+def keep_all_chunks_relevant():
+    """side_effect для gemini.grade_relevance: судья признаёт релевантными все чанки.
+
+    Тесты пайплайна проверяют не отбор чанков, а то, что происходит дальше, —
+    поэтому судью нужно замокать явно. Иначе MagicMock отдаёт пустой
+    relevant_chunk_ids, узел отбрасывает всё, и до генерации ничего не доходит.
+    """
+
+    def _grade(question, chunks):
+        return RelevanceGrade(
+            relevant_chunk_ids=[c["chunk_id"] for c in chunks],
+            reasoning="all relevant",
+        )
+
+    return _grade
 
 
 @pytest.fixture(autouse=True)
