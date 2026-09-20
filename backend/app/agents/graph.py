@@ -1,5 +1,6 @@
 from functools import partial
 
+from chromadb import get_settings
 from langgraph.graph import END, START, StateGraph
 
 from app.agents.constants import (
@@ -28,7 +29,17 @@ from app.agents.nodes import (
 from app.agents.state import ResearchState
 from app.providers.firecrawl_provider import FirecrawlProvider
 from app.providers.gemini_provider import GeminiProvider
+from app.core.config import get_settings
 from app.retrieval.vector_store import ChunkVectorStore
+
+
+def get_llm_provider():
+    settings = get_settings()
+    if settings.llm_provider == "openrouter":
+        from app.providers.openrouter_provider import OpenRouterProvider
+        return OpenRouterProvider()
+    from app.providers.gemini_provider import GeminiProvider
+    return GeminiProvider()
 
 
 def build_research_graph(
@@ -37,7 +48,7 @@ def build_research_graph(
     vector_store: ChunkVectorStore | None = None,
 ):
     firecrawl = firecrawl or FirecrawlProvider()
-    gemini = gemini or GeminiProvider()
+    gemini = gemini or get_llm_provider()
     vector_store = vector_store or ChunkVectorStore()
 
     graph = StateGraph(ResearchState)
