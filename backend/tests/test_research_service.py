@@ -6,7 +6,7 @@ from app.schemas.answer import Claim, ClaimsResponse
 from app.services.research_service import ResearchService
 
 
-def test_answer_builds_evidence_from_used_claims():
+def test_answer_builds_evidence_from_used_claims(keep_all_chunks_relevant):
     mock_firecrawl = MagicMock()
     mock_firecrawl.search.return_value = [
         SearchResult(title="Paper", url="https://example.com", snippet="...")
@@ -18,6 +18,7 @@ def test_answer_builds_evidence_from_used_claims():
     )
 
     mock_gemini = MagicMock()
+    mock_gemini.grade_relevance.side_effect = keep_all_chunks_relevant
 
     def fake_generate_answer(question, evidence_chunks):
         first_id = evidence_chunks[0]["chunk_id"]
@@ -51,7 +52,7 @@ def test_answer_builds_evidence_from_used_claims():
     assert result.evidence_sufficient is True
 
 
-def test_answer_drops_claims_with_only_unknown_evidence_ids():
+def test_answer_drops_claims_with_only_unknown_evidence_ids(keep_all_chunks_relevant):
     mock_firecrawl = MagicMock()
     mock_firecrawl.search.return_value = [
         SearchResult(title="Paper", url="https://example.com", snippet="...")
@@ -61,6 +62,7 @@ def test_answer_drops_claims_with_only_unknown_evidence_ids():
     )
 
     mock_gemini = MagicMock()
+    mock_gemini.grade_relevance.side_effect = keep_all_chunks_relevant
     mock_gemini.generate_answer.return_value = ClaimsResponse(
         summary="Test summary",
         claims=[
@@ -84,7 +86,7 @@ def test_answer_drops_claims_with_only_unknown_evidence_ids():
     # insufficient evidence triggers the refine loop until MAX_RETRIES is hit
     assert mock_gemini.generate_answer.call_count == MAX_RETRIES + 1
 
-def test_answer_skips_failed_scrape_and_continues():
+def test_answer_skips_failed_scrape_and_continues(keep_all_chunks_relevant):
     mock_firecrawl = MagicMock()
     mock_firecrawl.search.return_value = [
         SearchResult(title="Broken", url="https://broken.com", snippet="..."),
@@ -101,6 +103,7 @@ def test_answer_skips_failed_scrape_and_continues():
     mock_firecrawl.scrape.side_effect = fake_scrape
 
     mock_gemini = MagicMock()
+    mock_gemini.grade_relevance.side_effect = keep_all_chunks_relevant
 
     def fake_generate_answer(question, evidence_chunks):
         first_id = evidence_chunks[0]["chunk_id"]
