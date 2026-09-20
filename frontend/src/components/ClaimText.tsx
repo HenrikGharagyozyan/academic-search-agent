@@ -1,5 +1,6 @@
 import type { Answer } from "../types/answer";
 import { Citation } from "./Citation";
+import { MathText } from "./MathText";
 
 interface ClaimTextProps {
   claim: Answer["claims"][number];
@@ -46,13 +47,24 @@ export function ClaimText({ claim, evidence, citationNumbers }: ClaimTextProps) 
           {claim.confidence.toUpperCase()}
         </span>
       )}
-      {claim.text}{" "}
-      {claim.evidence_ids.map((id) => {
-        const item = evidence[id];
-        const number = citationNumbers.get(id);
-        if (!item || number === undefined) return null;
-        return <Citation key={id} index={number} evidence={item} />;
-      })}
+      <MathText text={claim.text} />{" "}
+      {claim.evidence_ids
+        .map((id) => {
+          const item = evidence[id];
+          const number = citationNumbers.get(id);
+          if (!item || number === undefined) return null;
+          return { id, item, number };
+        })
+        .filter(
+          (c): c is { id: string; item: (typeof evidence)[string]; number: number } =>
+            c !== null
+        )
+        .map((c, i, arr) => (
+          <span key={c.id}>
+            <Citation index={c.number} evidence={c.item} />
+            {i < arr.length - 1 && <span style={{ marginRight: 2 }}>,</span>}
+          </span>
+        ))}
     </p>
   );
 }
