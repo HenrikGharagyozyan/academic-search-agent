@@ -22,7 +22,7 @@ export function Citation({ index, evidence }: CitationProps) {
   const { shown, truncated } = truncateText(evidence.text);
   const displayText = expanded ? evidence.text : shown;
 
-  // Закрываем попап при клике где угодно вне этого компонента
+  // Close the popup when clicking anywhere outside this component
   useEffect(() => {
     if (!open) return;
 
