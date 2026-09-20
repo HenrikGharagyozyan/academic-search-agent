@@ -1,11 +1,12 @@
 from unittest.mock import MagicMock
 
+from app.agents.constants import MAX_RETRIES
 from app.agents.graph import build_research_graph
 from app.providers.firecrawl_provider import ScrapedPage, SearchResult
 from app.schemas.answer import Claim, ClaimsResponse
 
 
-def test_graph_runs_end_to_end_with_mocks():
+def test_graph_runs_end_to_end_with_mocks(keep_all_chunks_relevant):
     mock_firecrawl = MagicMock()
     mock_firecrawl.search.return_value = [
         SearchResult(title="Paper", url="https://example.com", snippet="...")
@@ -15,6 +16,7 @@ def test_graph_runs_end_to_end_with_mocks():
     )
 
     mock_gemini = MagicMock()
+    mock_gemini.grade_relevance.side_effect = keep_all_chunks_relevant
 
     def fake_generate_answer(question, evidence_chunks):
         return ClaimsResponse(
@@ -54,7 +56,7 @@ def test_graph_runs_end_to_end_with_mocks():
     assert len(result["claims"]) == 1
 
 
-def test_graph_retries_when_no_evidence_found_then_succeeds():
+def test_graph_retries_when_no_evidence_found_then_succeeds(keep_all_chunks_relevant):
     mock_firecrawl = MagicMock()
     mock_firecrawl.search.return_value = [
         SearchResult(title="Paper", url="https://example.com", snippet="...")
@@ -64,6 +66,7 @@ def test_graph_retries_when_no_evidence_found_then_succeeds():
     )
 
     mock_gemini = MagicMock()
+    mock_gemini.grade_relevance.side_effect = keep_all_chunks_relevant
     mock_gemini.refine_query.return_value = "refined query"
 
     call_count = {"n": 0}
@@ -118,7 +121,7 @@ def test_graph_retries_when_no_evidence_found_then_succeeds():
     mock_gemini.refine_query.assert_called_once()
 
 
-def test_graph_stops_after_max_retries_with_no_evidence():
+def test_graph_stops_after_max_retries_with_no_evidence(keep_all_chunks_relevant):
     mock_firecrawl = MagicMock()
     mock_firecrawl.search.return_value = [
         SearchResult(title="Paper", url="https://example.com", snippet="...")
@@ -128,6 +131,7 @@ def test_graph_stops_after_max_retries_with_no_evidence():
     )
 
     mock_gemini = MagicMock()
+    mock_gemini.grade_relevance.side_effect = keep_all_chunks_relevant
     mock_gemini.refine_query.return_value = "refined query"
     mock_gemini.generate_answer.return_value = ClaimsResponse(
         summary="Ungrounded summary",
@@ -157,4 +161,4 @@ def test_graph_stops_after_max_retries_with_no_evidence():
     )
 
     assert result["evidence_sufficient"] is False
-    assert result["retry_count"] == 2  # MAX_RETRIES
+    assert result["retry_count"] == MAX_RETRIES

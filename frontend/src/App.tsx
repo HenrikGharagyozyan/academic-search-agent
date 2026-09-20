@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { askQuestion, streamQuestion } from "./api/research";
+import { streamQuestion } from "./api/research";
 import type { Answer } from "./types/answer";
 import { ClaimText } from "./components/ClaimText";
+import { MathText } from "./components/MathText";
 import { buildCitationNumbers } from "./utils/citations";
 
 function App() {
@@ -25,7 +26,11 @@ function App() {
         if (event.type === "progress") {
           setStage(event.data.label);
         } else if (event.type === "result") {
-          setAnswer(event.data);
+          if (!event.data.claims?.length) {
+            setError("It was not possible to find reliable enough sources for an answer. Try to reformulate the question.");
+          } else {
+            setAnswer(event.data);
+          }
         } else if (event.type === "error") {
           setError(event.data.detail);
         }
@@ -171,7 +176,7 @@ function App() {
                     lineHeight: 1.6,
                   }}
                 >
-                  {answer.summary}
+                  <MathText text={answer.summary} />
                 </p>
               )}
 
@@ -205,7 +210,7 @@ function App() {
                     Conclusion
                   </div>
                   <p style={{ fontSize: 16, lineHeight: 1.7, margin: 0 }}>
-                    {answer.conclusion}
+                    <MathText text={answer.conclusion} />
                   </p>
                 </div>
               )}

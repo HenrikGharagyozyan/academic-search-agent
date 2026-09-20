@@ -27,11 +27,11 @@ flowchart LR
 | **search** | Firecrawl web search for up to `MAX_SOURCES` (6) pages. |
 | **retrieve_and_chunk** | Scrapes each page to Markdown in parallel, splits it into numbered lines, and groups the lines into overlapping paragraph chunks of at most 20 lines. Scraped pages are cached in-memory by URL for an hour. A page that fails to scrape is skipped and the run continues. |
 | **select_relevant_chunks** | Embeds the chunks with `gemini-embedding-001` into a temporary in-memory Chroma collection and keeps the `TOP_K_CHUNKS` (25) closest to the question. If embedding fails, it keeps the first 25 chunks instead. |
-| **grade_relevance** | Gemini judges which selected chunks are actually relevant to the question and drops the rest (or keeps them all, if the judge rejects everything, rather than leaving no context). |
+| **grade_relevance** | Gemini judges which selected chunks are actually relevant to the question and drops the rest. If the judge rejects everything, no chunks survive and the run yields an empty answer rather than one built on irrelevant context. Chunks are kept only when the grading call itself fails. |
 | **generate_claims** | `gemini-3.6-flash` returns structured output: a `summary`, a list of `claims` (each with `evidence_ids` and a `confidence`), and a `conclusion`. |
 | **verify_evidence** | Removes evidence IDs that don't match a chunk that was actually selected, and drops any claim left with no valid evidence. |
 | **grade_answer** | Gemini judges whether the generated answer is a satisfactory, on-topic response — can mark it insufficient even if the evidence was grounded. |
-| **refine_query** | Runs only if the answer was judged insufficient: Gemini rewrites the search query and the loop runs again, up to `MAX_RETRIES` (2) times. |
+| **refine_query** | Runs only if the answer was judged insufficient: Gemini rewrites the search query and the loop runs again, up to `MAX_RETRIES` (1) time. |
 
 You can tune the pipeline in [`backend/app/agents/constants.py`](backend/app/agents/constants.py).
 

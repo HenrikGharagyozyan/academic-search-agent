@@ -16,6 +16,7 @@ dependencies = [
     "httpx>=0.28.1",
     "langchain>=1.4.0",
     "langchain-google-genai>=4.4.0",
+    "langchain-openai>=1.6.2",
     "langgraph>=1.2.11",
     "pydantic>=2.13.5",
     "pydantic-settings>=2.15.0",

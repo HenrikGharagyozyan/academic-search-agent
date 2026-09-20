@@ -25,7 +25,7 @@ def test_grade_relevance_filters_irrelevant_chunks():
     assert [c.chunk_id for c in result["selected_chunks"]] == ["c1"]
 
 
-def test_grade_relevance_keeps_all_if_none_relevant():
+def test_grade_relevance_drops_everything_if_none_relevant():
     mock_gemini = MagicMock()
     mock_gemini.grade_relevance.return_value = RelevanceGrade(
         relevant_chunk_ids=[], reasoning="none relevant"
@@ -35,7 +35,20 @@ def test_grade_relevance_keeps_all_if_none_relevant():
     state = {"question": "q?", "selected_chunks": chunks}
     result = grade_relevance_node(state, gemini=mock_gemini)
 
-    assert result == {}  # не трогаем state, оставляем исходные chunks
+    # An empty answer beats one built on irrelevant chunks.
+    assert result == {"selected_chunks": []}
+
+
+def test_grade_relevance_keeps_all_when_grading_fails():
+    mock_gemini = MagicMock()
+    mock_gemini.grade_relevance.side_effect = RuntimeError("upstream down")
+
+    chunks = [make_chunk("c1"), make_chunk("c2")]
+    state = {"question": "q?", "selected_chunks": chunks}
+    result = grade_relevance_node(state, gemini=mock_gemini)
+
+    # A failing judge is no reason to lose context: the state stays untouched.
+    assert result == {}
 
 
 def test_grade_answer_marks_insufficient_when_unsatisfactory():
