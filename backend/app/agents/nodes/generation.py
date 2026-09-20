@@ -2,6 +2,7 @@ import logging
 
 from app.agents.state import ResearchState
 from app.providers.gemini_provider import GeminiProvider
+from app.providers.latex import restore_latex
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +22,10 @@ def generate_claims_node(state: ResearchState, gemini: GeminiProvider) -> dict:
         return {"summary": "", "claims": [], "conclusion": ""}
 
     return {
-        "summary": result.summary,
-        "claims": result.claims,
-        "conclusion": result.conclusion,
+        "summary": restore_latex(result.summary),
+        "claims": [
+            claim.model_copy(update={"text": restore_latex(claim.text)})
+            for claim in result.claims
+        ],
+        "conclusion": restore_latex(result.conclusion),
     }
