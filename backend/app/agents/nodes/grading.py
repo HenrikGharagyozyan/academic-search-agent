@@ -27,7 +27,7 @@ def grade_relevance_node(state: ResearchState, gemini: GeminiProvider) -> dict:
     filtered = [c for c in state["selected_chunks"] if c.chunk_id in relevant_ids]
 
     if not filtered:
-        return {}
+        return {"selected_chunks": []}
 
     return {"selected_chunks": filtered}
 
