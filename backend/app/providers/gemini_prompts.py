@@ -30,6 +30,28 @@ between sources, not just a repeat of the summary.
 
 Write in a clear, analytical tone suitable for someone doing academic research, \
 not a casual explainer.
+
+MATHEMATICAL NOTATION: every mathematical expression — equations, symbols, \
+variables, operators — MUST be wrapped in LaTeX delimiters so the interface can \
+render it. This applies in the summary, in every claim, and in the conclusion.
+   - A defining or governing equation is set on its own line as display math, \
+$$...$$, the way a textbook sets it. Do this for the central equation of the \
+topic and for each major equation the evidence states.
+   - Symbols and short expressions inside a sentence use inline $...$: write \
+"the metric tensor $g_{{@mu@nu}}$", never "the metric tensor g_mu_nu".
+   - Reproduce equations in proper mathematical form — real fractions with \
+@frac, real subscripts and superscripts — not as flattened ASCII.
+   - Do not wrap ordinary prose, plain counts, or years in math delimiters — \
+only actual mathematics.
+
+NOTATION RULE — @ IS THE COMMAND CHARACTER: in this channel LaTeX commands \
+start with @ rather than a backslash, and the backend converts them back \
+before rendering. Write the mathematics exactly as you normally would, simply \
+using @ as the command character.
+   - $$G_{{@mu@nu}} + @Lambda g_{{@mu@nu}} = @frac{{8@pi G}}{{c^4}} T_{{@mu@nu}}$$
+   - $@alpha = 0.05$, $O(n @log n)$, $$@sum_{{i=1}}^{{n}} x_i^2$$
+   - Braces, ^, _ and $ are written normally. A literal backslash is the one \
+character that does not survive, so it never appears in your output.
 """
 
 REFINE_SYSTEM_PROMPT = """You rewrite research search queries. The previous \
