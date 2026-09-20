@@ -35,7 +35,7 @@ def test_grade_relevance_keeps_all_if_none_relevant():
     state = {"question": "q?", "selected_chunks": chunks}
     result = grade_relevance_node(state, gemini=mock_gemini)
 
-    assert result == {}  # не трогаем state, оставляем исходные chunks
+    assert result == {}  # do not mutate state; keep the original chunks
 
 
 def test_grade_answer_marks_insufficient_when_unsatisfactory():

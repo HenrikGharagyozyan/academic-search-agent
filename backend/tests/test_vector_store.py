@@ -49,4 +49,4 @@ def test_select_relevant_chunks_falls_back_on_embedding_failure():
     result = store.select_relevant_chunks("query", chunks, top_k=1)
 
     assert len(result) == 1
-    assert result[0].chunk_id == "c1"  # первый чанк как fallback
+    assert result[0].chunk_id == "c1"  # first chunk as fallback
