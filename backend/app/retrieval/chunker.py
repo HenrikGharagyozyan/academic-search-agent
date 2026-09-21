@@ -3,8 +3,18 @@ import uuid
 
 from app.schemas.document import Chunk, DocumentLine
 
-MAX_LINES_PER_CHUNK = 20
-CHUNK_OVERLAP_LINES = 3
+# Chunks are packed according to the budget of characters, not strings — Firecrawl puts one
+# a paragraph (or headline) per line separated by blank lines, so that
+# the row limit (MAX_LINES_PER_CHUNK) has never been triggered:
+# each "paragraph" is 1 line, and each chunk turned out to be one sentence
+# or a bare headline. Packing by characters gives each chunk enough
+# the context to be a useful quotable unit, and forces
+# MAX_SOURCES/TOP_K_CHUNKS work as intended — a fixed number
+# meaningful passages, not a fixed number of random lines.
+CHUNK_CHAR_BUDGET = 1400
+CHUNK_CHAR_OVERLAP = 200
+
+_HEADING_RE = re.compile(r"^#{1,6}\s")
 
 
 def chunk_lines(
@@ -16,7 +26,47 @@ def chunk_lines(
     if not lines:
         return []
 
-    paragraphs: list[list[DocumentLine]] = []
+    paragraphs = _group_into_paragraphs(lines)
+    paragraphs = _merge_headings_forward(paragraphs)
+
+    chunks: list[Chunk] = []
+    for piece in _pack_by_char_budget(paragraphs, CHUNK_CHAR_BUDGET, CHUNK_CHAR_OVERLAP):
+        chunks.append(
+            Chunk(
+                chunk_id=str(uuid.uuid4()),
+                document_id=document_id,
+                text=piece.text,
+                start_line=piece.start_line,
+                end_line=piece.end_line,
+                source_url=source_url,
+                title=title,
+            )
+        )
+
+    return chunks
+
+
+class _Paragraph:
+    __slots__ = ("lines",)
+
+    def __init__(self, lines: list[DocumentLine]) -> None:
+        self.lines = lines
+
+    @property
+    def text(self) -> str:
+        return "\n".join(l.text for l in self.lines)
+
+    @property
+    def start_line(self) -> int:
+        return self.lines[0].line_number
+
+    @property
+    def end_line(self) -> int:
+        return self.lines[-1].line_number
+
+
+def _group_into_paragraphs(lines: list[DocumentLine]) -> list[_Paragraph]:
+    paragraphs: list[_Paragraph] = []
     current: list[DocumentLine] = []
 
     for i, line in enumerate(lines):
@@ -27,44 +77,85 @@ def chunk_lines(
         is_gap = next_line_number is not None and next_line_number != line.line_number + 1
 
         if is_gap or is_last:
-            paragraphs.append(current)
+            paragraphs.append(_Paragraph(current))
             current = []
 
-    chunks: list[Chunk] = []
+    return paragraphs
+
+
+def _merge_headings_forward(paragraphs: list[_Paragraph]) -> list[_Paragraph]:
+    """A heading on its own is a useless, orphaned chunk — attach it to the
+    paragraph that follows it so it always ships with the content it titles."""
+    merged: list[_Paragraph] = []
+    pending_heading: _Paragraph | None = None
+
     for paragraph in paragraphs:
-        for piece in _split_with_overlap(paragraph, MAX_LINES_PER_CHUNK, CHUNK_OVERLAP_LINES):
-            chunks.append(
-                Chunk(
-                    chunk_id=str(uuid.uuid4()),
-                    document_id=document_id,
-                    text="\n".join(l.text for l in piece),
-                    start_line=piece[0].line_number,
-                    end_line=piece[-1].line_number,
-                    source_url=source_url,
-                    title=title,
-                )
-            )
+        is_heading = len(paragraph.lines) == 1 and _HEADING_RE.match(paragraph.lines[0].text)
 
-    return chunks
+        if is_heading:
+            if pending_heading is not None:
+                merged.append(pending_heading)
+            pending_heading = paragraph
+            continue
+
+        if pending_heading is not None:
+            merged.append(_Paragraph(pending_heading.lines + paragraph.lines))
+            pending_heading = None
+        else:
+            merged.append(paragraph)
+
+    if pending_heading is not None:
+        merged.append(pending_heading)
+
+    return merged
 
 
-def _split_with_overlap(
-    paragraph: list[DocumentLine], max_lines: int, overlap: int
-) -> list[list[DocumentLine]]:
-    if len(paragraph) <= max_lines:
-        return [paragraph]
+class _Piece:
+    __slots__ = ("text", "start_line", "end_line")
 
-    step = max(max_lines - overlap, 1)
-    pieces: list[list[DocumentLine]] = []
-    i = 0
-    n = len(paragraph)
+    def __init__(self, text: str, start_line: int, end_line: int) -> None:
+        self.text = text
+        self.start_line = start_line
+        self.end_line = end_line
 
-    while i < n:
-        piece = paragraph[i : i + max_lines]
-        pieces.append(piece)
-        if i + max_lines >= n:
-            break
-        i += step
+
+def _pack_by_char_budget(
+    paragraphs: list[_Paragraph], budget: int, overlap: int
+) -> list[_Piece]:
+    pieces: list[_Piece] = []
+    buffer: list[_Paragraph] = []
+    buffer_chars = 0
+
+    def flush() -> list[_Paragraph]:
+        text = "\n\n".join(p.text for p in buffer)
+        pieces.append(_Piece(text, buffer[0].start_line, buffer[-1].end_line))
+
+        carry: list[_Paragraph] = []
+        carry_chars = 0
+        for p in reversed(buffer):
+            if carry_chars >= overlap:
+                break
+            carry.insert(0, p)
+            carry_chars += len(p.text)
+        return carry
+
+    for paragraph in paragraphs:
+        if not buffer and len(paragraph.text) > budget:
+            pieces.append(_Piece(paragraph.text, paragraph.start_line, paragraph.end_line))
+            continue
+
+        projected = buffer_chars + len(paragraph.text) + (2 if buffer else 0)
+        if buffer and projected > budget:
+            buffer = flush()
+            buffer_chars = sum(len(p.text) for p in buffer)
+
+        buffer.append(paragraph)
+        buffer_chars += len(paragraph.text) + (2 if len(buffer) > 1 else 0)
+
+    if buffer:
+        pieces.append(
+            _Piece("\n\n".join(p.text for p in buffer), buffer[0].start_line, buffer[-1].end_line)
+        )
 
     return pieces
 
