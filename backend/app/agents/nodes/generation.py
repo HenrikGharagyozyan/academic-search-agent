@@ -3,8 +3,14 @@ import logging
 from app.agents.state import ResearchState
 from app.providers.gemini_provider import GeminiProvider
 from app.providers.latex import restore_latex
+from app.providers.text_cleanup import strip_evidence_ids
 
 logger = logging.getLogger(__name__)
+
+
+def _presentable(text: str) -> str:
+    """Turns raw model text into what the reader should actually see."""
+    return strip_evidence_ids(restore_latex(text))
 
 
 def generate_claims_node(state: ResearchState, gemini: GeminiProvider) -> dict:
@@ -22,10 +28,10 @@ def generate_claims_node(state: ResearchState, gemini: GeminiProvider) -> dict:
         return {"summary": "", "claims": [], "conclusion": ""}
 
     return {
-        "summary": restore_latex(result.summary),
+        "summary": _presentable(result.summary),
         "claims": [
-            claim.model_copy(update={"text": restore_latex(claim.text)})
+            claim.model_copy(update={"text": _presentable(claim.text)})
             for claim in result.claims
         ],
-        "conclusion": restore_latex(result.conclusion),
+        "conclusion": _presentable(result.conclusion),
     }
