@@ -77,6 +77,8 @@ class ResearchService:
                             "label": STAGE_LABELS.get(node_name, node_name),
                         },
                     }
+
+            answer = self._build_answer(question, state)
         except UpstreamServiceError as exc:
             yield {"event": "error", "data": {"detail": str(exc)}}
             return
@@ -85,7 +87,6 @@ class ResearchService:
             yield {"event": "error", "data": {"detail": "Research pipeline failed"}}
             return
 
-        answer = self._build_answer(question, state)
         yield {"event": "result", "data": answer.model_dump(mode="json")}
 
     def _build_answer(self, question: str, result: dict[str, Any]) -> Answer:

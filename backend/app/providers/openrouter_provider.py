@@ -1,12 +1,14 @@
 from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponential
 
 from app.core.config import get_settings
-from app.providers.gemini_prompts import (
+from app.providers.prompts import (
     ANSWER_PROMPT, REFINE_PROMPT, ANSWER_QUALITY_PROMPT, RELEVANCE_GRADE_PROMPT,
 )
 from app.schemas.answer import Claim, ClaimsResponse
 from app.schemas.grading import RelevanceGrade, AnswerQualityGrade
 from langchain_openai import ChatOpenAI
+
+REQUEST_TIMEOUT_SECONDS = 30
 
 
 def _is_transient_error(exc: BaseException) -> bool:
@@ -32,6 +34,7 @@ class OpenRouterProvider:
             base_url="https://openrouter.ai/api/v1",
             api_key=settings.openrouter_api_key,
             model=settings.openrouter_model,
+            timeout=REQUEST_TIMEOUT_SECONDS,
         )
         self._structured_llm = self._llm.with_structured_output(ClaimsResponse)
 
@@ -44,7 +47,6 @@ class OpenRouterProvider:
             {"question": question, "evidence_block": evidence_block}
         )
         result: ClaimsResponse = self._structured_llm.invoke(prompt_value)
-
         return result
 
     @openrouter_retry
@@ -53,7 +55,7 @@ class OpenRouterProvider:
             {"question": question, "previous_query": previous_query}
         )
         response = self._llm.invoke(prompt_value)
-        return response.content.strip()
+        return response.text.strip()
 
     @openrouter_retry
     def grade_relevance(self, question: str, chunks: list[dict]) -> RelevanceGrade:

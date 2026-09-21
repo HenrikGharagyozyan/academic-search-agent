@@ -2,6 +2,7 @@ import hashlib
 import logging
 import time
 
+import cachetools
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 
 from app.core.config import get_settings
@@ -10,6 +11,8 @@ logger = logging.getLogger(__name__)
 
 MAX_EMBED_RETRIES = 2
 RETRY_BACKOFF_SECONDS = 5.0
+EMBED_CACHE_MAXSIZE = 2000
+EMBED_CACHE_TTL_SECONDS = 3600
 
 
 def _is_rate_limit_error(exc: Exception) -> bool:
@@ -24,10 +27,12 @@ class EmbeddingProvider:
             model="models/gemini-embedding-001",
             google_api_key=settings.gemini_api_key,
         )
-        self._cache: dict[str, list[float]] = {}
+        self._cache: cachetools.TTLCache = cachetools.TTLCache(
+            maxsize=EMBED_CACHE_MAXSIZE, ttl=EMBED_CACHE_TTL_SECONDS
+        )
 
     def embed_documents(self, texts: list[str]) -> list[list[float]]:
-        keys = [self._cache_key(t) for t in texts]
+        keys = [self._cache_key("d", t) for t in texts]
         missing_idx = [i for i, k in enumerate(keys) if k not in self._cache]
 
         if missing_idx:
@@ -39,14 +44,14 @@ class EmbeddingProvider:
         return [self._cache[k] for k in keys]
 
     def embed_query(self, text: str) -> list[float]:
-        key = self._cache_key(text)
+        key = self._cache_key("q", text)
         if key not in self._cache:
             self._cache[key] = self._call_with_retry(self._embeddings.embed_query, text)
         return self._cache[key]
 
     @staticmethod
-    def _cache_key(text: str) -> str:
-        return hashlib.sha256(text.encode("utf-8")).hexdigest()
+    def _cache_key(kind: str, text: str) -> str:
+        return f"{kind}:{hashlib.sha256(text.encode('utf-8')).hexdigest()}"
 
     @staticmethod
     def _call_with_retry(fn, *args):

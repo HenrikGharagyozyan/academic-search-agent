@@ -25,7 +25,7 @@ class ScrapedPage(BaseModel):
 class FirecrawlProvider:
     def __init__(self) -> None:
         settings = get_settings()
-        self._client = FirecrawlApp(api_key=settings.firecrawl_api_key)
+        self._client = FirecrawlApp(api_key=settings.firecrawl_api_key, timeout=30000)
         self._scrape_cache: cachetools.TTLCache = cachetools.TTLCache(
             maxsize=SCRAPE_CACHE_MAXSIZE, ttl=SCRAPE_CACHE_TTL_SECONDS
         )

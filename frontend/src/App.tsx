@@ -21,19 +21,26 @@ function App() {
     setAnswer(null);
     setStage(null);
 
+    let receivedTerminal = false;
+
     try {
       for await (const event of streamQuestion(question)) {
         if (event.type === "progress") {
           setStage(event.data.label);
         } else if (event.type === "result") {
+          receivedTerminal = true;
           if (!event.data.claims?.length) {
             setError("It was not possible to find reliable enough sources for an answer. Try to reformulate the question.");
           } else {
             setAnswer(event.data);
           }
         } else if (event.type === "error") {
+          receivedTerminal = true;
           setError(event.data.detail);
         }
+      }
+      if (!receivedTerminal) {
+        setError("The connection was interrupted before an answer arrived. Please try again.");
       }
     } catch {
       setError("Something went wrong. Please try again.");

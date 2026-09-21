@@ -1,7 +1,7 @@
 from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponential
 
 from app.core.config import get_settings
-from app.providers.gemini_prompts import ANSWER_PROMPT, REFINE_PROMPT, ANSWER_QUALITY_PROMPT, RELEVANCE_GRADE_PROMPT
+from app.providers.prompts import ANSWER_PROMPT, REFINE_PROMPT, ANSWER_QUALITY_PROMPT, RELEVANCE_GRADE_PROMPT
 from app.schemas.answer import Claim, ClaimsResponse
 from app.schemas.grading import RelevanceGrade, AnswerQualityGrade
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -26,6 +26,7 @@ class GeminiProvider:
         self._llm = ChatGoogleGenerativeAI(
             model="gemini-3.6-flash",
             google_api_key=settings.gemini_api_key,
+            timeout=30,
         )
         self._structured_llm = self._llm.with_structured_output(ClaimsResponse)
 
