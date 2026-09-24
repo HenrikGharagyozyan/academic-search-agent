@@ -1,7 +1,7 @@
 from unittest.mock import MagicMock
 
-from app.agents.constants import MAX_RETRIES
-from app.agents.graph import build_research_graph
+from app.application.agents.constants import MAX_RETRIES
+from app.application.agents.graph import build_research_graph
 from app.domain.search import ScrapedPage, SearchResult
 from app.domain.answers import Claim, ClaimsResponse
 

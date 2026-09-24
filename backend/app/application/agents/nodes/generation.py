@@ -1,6 +1,6 @@
 import logging
 
-from app.agents.state import ResearchState
+from app.application.agents.state import ResearchState
 from app.ports.llm import LLMProvider
 from app.domain.text.latex import restore_latex
 from app.domain.text.cleanup import strip_evidence_ids

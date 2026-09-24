@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from app.api.deps import get_document_service
 from app.domain.documents import ParsedDocument
 from app.api.schemas.document import DocumentRequest
-from app.services.document_service import DocumentService
+from app.application.services.document import DocumentService
 
 logger = logging.getLogger(__name__)
 

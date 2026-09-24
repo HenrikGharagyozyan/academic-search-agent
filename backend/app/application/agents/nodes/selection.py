@@ -1,6 +1,6 @@
-from app.agents.state import ResearchState
+from app.application.agents.state import ResearchState
 from app.infrastructure.vector_store.chroma import ChromaVectorStore
-from app.agents.constants import TOP_K_CHUNKS
+from app.application.agents.constants import TOP_K_CHUNKS
 
 
 def select_relevant_chunks_node(

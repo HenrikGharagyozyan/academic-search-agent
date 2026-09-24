@@ -1,8 +1,8 @@
 from unittest.mock import MagicMock
 import pytest
 
-from app.agents.constants import MAX_SOURCES
-from app.agents.nodes import generate_claims_node, retrieve_and_chunk_node, search_node
+from app.application.agents.constants import MAX_SOURCES
+from app.application.agents.nodes import generate_claims_node, retrieve_and_chunk_node, search_node
 from app.domain.search import ScrapedPage, SearchResult
 from app.core.exceptions import UpstreamServiceError
 
@@ -57,7 +57,7 @@ def test_generate_claims_node_returns_empty_when_no_chunks():
 
 
 def test_select_relevant_chunks_node_calls_vector_store():
-    from app.agents.nodes import select_relevant_chunks_node
+    from app.application.agents.nodes import select_relevant_chunks_node
     from app.domain.documents import Chunk
 
     mock_vector_store = MagicMock()
@@ -74,7 +74,7 @@ def test_select_relevant_chunks_node_calls_vector_store():
 
 
 def test_generate_claims_node_returns_empty_on_gemini_failure():
-    from app.agents.nodes import generate_claims_node
+    from app.application.agents.nodes import generate_claims_node
     from app.domain.documents import Chunk
 
     mock_gemini = MagicMock()

@@ -1,6 +1,6 @@
 import logging
 
-from app.agents.state import ResearchState
+from app.application.agents.state import ResearchState
 from app.ports.llm import LLMProvider
 
 logger = logging.getLogger(__name__)

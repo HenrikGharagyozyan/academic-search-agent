@@ -1,9 +1,9 @@
 from unittest.mock import MagicMock
 
-from app.agents.constants import MAX_RETRIES
+from app.application.agents.constants import MAX_RETRIES
 from app.domain.search import ScrapedPage, SearchResult
 from app.domain.answers import Claim, ClaimsResponse
-from app.services.research_service import ResearchService
+from app.application.services.research import ResearchService
 
 
 def test_answer_builds_evidence_from_used_claims(keep_all_chunks_relevant):

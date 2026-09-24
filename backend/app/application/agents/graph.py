@@ -2,7 +2,7 @@ from functools import partial
 
 from langgraph.graph import END, START, StateGraph
 
-from app.agents.constants import (
+from app.application.agents.constants import (
     NODE_GENERATE_CLAIMS,
     NODE_GRADE_ANSWER,
     NODE_GRADE_RELEVANCE,
@@ -14,7 +14,7 @@ from app.agents.constants import (
     ROUTE_END,
     ROUTE_REFINE,
 )
-from app.agents.nodes import (
+from app.application.agents.nodes import (
     generate_claims_node,
     grade_answer_node,
     grade_relevance_node,
@@ -25,7 +25,7 @@ from app.agents.nodes import (
     should_refine,
     verify_evidence_node,
 )
-from app.agents.state import ResearchState
+from app.application.agents.state import ResearchState
 from app.infrastructure.search.firecrawl import FirecrawlProvider
 from app.infrastructure.llm import create_llm_provider
 from app.infrastructure.llm.gemini import GeminiProvider

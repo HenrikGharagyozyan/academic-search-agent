@@ -1,7 +1,7 @@
 from unittest.mock import MagicMock
 
-from app.agents.nodes import verify_evidence_node
-from app.agents.nodes import refine_query_node
+from app.application.agents.nodes import verify_evidence_node
+from app.application.agents.nodes import refine_query_node
 from app.domain.answers import Claim
 from app.domain.documents import Chunk
 

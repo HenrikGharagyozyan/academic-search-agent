@@ -2,8 +2,8 @@ import logging
 from collections.abc import Generator
 from typing import Any
 
-from app.agents.constants import STAGE_LABELS
-from app.agents.graph import build_research_graph
+from app.application.agents.constants import STAGE_LABELS
+from app.application.agents.graph import build_research_graph
 from app.core.exceptions import ResearchServiceError, UpstreamServiceError
 from app.infrastructure.search.firecrawl import FirecrawlProvider
 from app.infrastructure.llm.gemini import GeminiProvider

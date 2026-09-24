@@ -1,13 +1,13 @@
 import logging
 from concurrent.futures import ThreadPoolExecutor
 
-from app.agents.state import ResearchState
+from app.application.agents.state import ResearchState
 from app.domain.search import ScrapedPage, SearchResult
 from app.infrastructure.search.firecrawl import FirecrawlProvider
 from app.domain.text.chunker import chunk_lines, deduplicate_chunks
 from app.domain.text.splitter import split_into_lines
 from app.domain.documents import Chunk
-from app.agents.constants import MAX_SCRAPE_WORKERS
+from app.application.agents.constants import MAX_SCRAPE_WORKERS
 
 logger = logging.getLogger(__name__)
 
