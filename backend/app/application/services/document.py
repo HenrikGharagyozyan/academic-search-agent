@@ -1,11 +1,11 @@
-from app.infrastructure.search.firecrawl import FirecrawlProvider
+from app.ports.search import SearchProvider
 from app.domain.text.splitter import split_into_lines
 from app.domain.documents import ParsedDocument
 
 
 class DocumentService:
-    def __init__(self, provider: FirecrawlProvider | None = None) -> None:
-        self._provider = provider or FirecrawlProvider()
+    def __init__(self, provider: SearchProvider) -> None:
+        self._provider = provider
 
     def get_document(self, url: str) -> ParsedDocument:
         page = self._provider.scrape(url)

@@ -14,46 +14,46 @@ def make_chunk(chunk_id: str) -> Chunk:
 
 
 def test_grade_relevance_filters_irrelevant_chunks():
-    mock_gemini = MagicMock()
-    mock_gemini.grade_relevance.return_value = RelevanceGrade(
+    mock_llm = MagicMock()
+    mock_llm.grade_relevance.return_value = RelevanceGrade(
         relevant_chunk_ids=["c1"], reasoning="only c1 is on topic"
     )
 
     state = {"question": "q?", "selected_chunks": [make_chunk("c1"), make_chunk("c2")]}
-    result = grade_relevance_node(state, gemini=mock_gemini)
+    result = grade_relevance_node(state, llm=mock_llm)
 
     assert [c.chunk_id for c in result["selected_chunks"]] == ["c1"]
 
 
 def test_grade_relevance_drops_everything_if_none_relevant():
-    mock_gemini = MagicMock()
-    mock_gemini.grade_relevance.return_value = RelevanceGrade(
+    mock_llm = MagicMock()
+    mock_llm.grade_relevance.return_value = RelevanceGrade(
         relevant_chunk_ids=[], reasoning="none relevant"
     )
 
     chunks = [make_chunk("c1"), make_chunk("c2")]
     state = {"question": "q?", "selected_chunks": chunks}
-    result = grade_relevance_node(state, gemini=mock_gemini)
+    result = grade_relevance_node(state, llm=mock_llm)
 
     # An empty answer beats one built on irrelevant chunks.
     assert result == {"selected_chunks": []}
 
 
 def test_grade_relevance_keeps_all_when_grading_fails():
-    mock_gemini = MagicMock()
-    mock_gemini.grade_relevance.side_effect = RuntimeError("upstream down")
+    mock_llm = MagicMock()
+    mock_llm.grade_relevance.side_effect = RuntimeError("upstream down")
 
     chunks = [make_chunk("c1"), make_chunk("c2")]
     state = {"question": "q?", "selected_chunks": chunks}
-    result = grade_relevance_node(state, gemini=mock_gemini)
+    result = grade_relevance_node(state, llm=mock_llm)
 
     # A failing judge is no reason to lose context: the state stays untouched.
     assert result == {}
 
 
 def test_grade_answer_marks_insufficient_when_unsatisfactory():
-    mock_gemini = MagicMock()
-    mock_gemini.grade_answer_quality.return_value = AnswerQualityGrade(
+    mock_llm = MagicMock()
+    mock_llm.grade_answer_quality.return_value = AnswerQualityGrade(
         is_satisfactory=False, reasoning="off topic"
     )
 
@@ -61,14 +61,14 @@ def test_grade_answer_marks_insufficient_when_unsatisfactory():
         "question": "q?", "summary": "s", "conclusion": "c",
         "claims": [Claim(text="x", evidence_ids=["c1"], confidence="high")],
     }
-    result = grade_answer_node(state, gemini=mock_gemini)
+    result = grade_answer_node(state, llm=mock_llm)
 
     assert result == {"evidence_sufficient": False}
 
 
 def test_grade_answer_returns_empty_when_satisfactory():
-    mock_gemini = MagicMock()
-    mock_gemini.grade_answer_quality.return_value = AnswerQualityGrade(
+    mock_llm = MagicMock()
+    mock_llm.grade_answer_quality.return_value = AnswerQualityGrade(
         is_satisfactory=True, reasoning="good"
     )
 
@@ -76,6 +76,6 @@ def test_grade_answer_returns_empty_when_satisfactory():
         "question": "q?", "summary": "s", "conclusion": "c",
         "claims": [Claim(text="x", evidence_ids=["c1"], confidence="high")],
     }
-    result = grade_answer_node(state, gemini=mock_gemini)
+    result = grade_answer_node(state, llm=mock_llm)
 
     assert result == {}

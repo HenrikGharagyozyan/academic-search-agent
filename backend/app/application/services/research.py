@@ -5,9 +5,9 @@ from typing import Any
 from app.application.agents.constants import STAGE_LABELS
 from app.application.agents.graph import build_research_graph
 from app.core.exceptions import ResearchServiceError, UpstreamServiceError
-from app.infrastructure.search.firecrawl import FirecrawlProvider
-from app.infrastructure.llm.gemini import GeminiProvider
-from app.infrastructure.vector_store.chroma import ChromaVectorStore
+from app.ports.llm import LLMProvider
+from app.ports.search import SearchProvider
+from app.ports.vector_store import VectorStore
 from app.domain.answers import Answer, AnswerEvidence
 from app.domain.documents import Chunk
 
@@ -19,11 +19,11 @@ RECURSION_LIMIT = 50
 class ResearchService:
     def __init__(
         self,
-        firecrawl: FirecrawlProvider | None = None,
-        gemini: GeminiProvider | None = None,
-        vector_store: ChromaVectorStore | None = None,
+        search_provider: SearchProvider | None = None,
+        llm: LLMProvider | None = None,
+        vector_store: VectorStore | None = None,
     ) -> None:
-        self._graph = build_research_graph(firecrawl, gemini, vector_store)
+        self._graph = build_research_graph(search_provider, llm, vector_store)
 
     @staticmethod
     def _initial_state(question: str) -> dict[str, Any]:

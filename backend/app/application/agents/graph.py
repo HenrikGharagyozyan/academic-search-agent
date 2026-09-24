@@ -26,31 +26,41 @@ from app.application.agents.nodes import (
     verify_evidence_node,
 )
 from app.application.agents.state import ResearchState
-from app.infrastructure.search.firecrawl import FirecrawlProvider
 from app.infrastructure.llm import create_llm_provider
-from app.infrastructure.llm.gemini import GeminiProvider
+from app.infrastructure.search.firecrawl import FirecrawlProvider
 from app.infrastructure.vector_store.chroma import ChromaVectorStore
+from app.ports.llm import LLMProvider
+from app.ports.search import SearchProvider
+from app.ports.vector_store import VectorStore
 
 
 def build_research_graph(
-    firecrawl: FirecrawlProvider | None = None,
-    gemini: GeminiProvider | None = None,
-    vector_store: ChromaVectorStore | None = None,
+    search_provider: SearchProvider | None = None,
+    llm: LLMProvider | None = None,
+    vector_store: VectorStore | None = None,
 ):
-    firecrawl = firecrawl or FirecrawlProvider()
-    gemini = gemini or create_llm_provider()
+    """Wires the research pipeline. Every collaborator is a port, so the
+    defaults below are the only place a concrete vendor is named."""
+    search_provider = search_provider or FirecrawlProvider()
+    llm = llm or create_llm_provider()
     vector_store = vector_store or ChromaVectorStore()
 
     graph = StateGraph(ResearchState)
 
-    graph.add_node(NODE_SEARCH, partial(search_node, firecrawl=firecrawl))
-    graph.add_node(NODE_RETRIEVE_AND_CHUNK, partial(retrieve_and_chunk_node, firecrawl=firecrawl))
-    graph.add_node(NODE_SELECT_CHUNKS, partial(select_relevant_chunks_node, vector_store=vector_store))
-    graph.add_node(NODE_GRADE_RELEVANCE, partial(grade_relevance_node, gemini=gemini))
-    graph.add_node(NODE_GENERATE_CLAIMS, partial(generate_claims_node, gemini=gemini))
+    graph.add_node(NODE_SEARCH, partial(search_node, search_provider=search_provider))
+    graph.add_node(
+        NODE_RETRIEVE_AND_CHUNK,
+        partial(retrieve_and_chunk_node, search_provider=search_provider),
+    )
+    graph.add_node(
+        NODE_SELECT_CHUNKS,
+        partial(select_relevant_chunks_node, vector_store=vector_store),
+    )
+    graph.add_node(NODE_GRADE_RELEVANCE, partial(grade_relevance_node, llm=llm))
+    graph.add_node(NODE_GENERATE_CLAIMS, partial(generate_claims_node, llm=llm))
     graph.add_node(NODE_VERIFY_EVIDENCE, verify_evidence_node)
-    graph.add_node(NODE_GRADE_ANSWER, partial(grade_answer_node, gemini=gemini))
-    graph.add_node(NODE_REFINE_QUERY, partial(refine_query_node, gemini=gemini))
+    graph.add_node(NODE_GRADE_ANSWER, partial(grade_answer_node, llm=llm))
+    graph.add_node(NODE_REFINE_QUERY, partial(refine_query_node, llm=llm))
 
     graph.add_edge(START, NODE_SEARCH)
     graph.add_edge(NODE_SEARCH, NODE_RETRIEVE_AND_CHUNK)

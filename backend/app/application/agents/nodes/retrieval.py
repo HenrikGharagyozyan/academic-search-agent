@@ -3,7 +3,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from app.application.agents.state import ResearchState
 from app.domain.search import ScrapedPage, SearchResult
-from app.infrastructure.search.firecrawl import FirecrawlProvider
+from app.ports.search import SearchProvider
 from app.domain.text.chunker import chunk_lines, deduplicate_chunks
 from app.domain.text.splitter import split_into_lines
 from app.domain.documents import Chunk
@@ -14,17 +14,17 @@ logger = logging.getLogger(__name__)
 
 
 def _scrape_result(
-    firecrawl: FirecrawlProvider, result: SearchResult
+    search_provider: SearchProvider, result: SearchResult
 ) -> tuple[SearchResult, ScrapedPage] | None:
     try:
-        page = firecrawl.scrape(result.url)
+        page = search_provider.scrape(result.url)
     except Exception:
         logger.warning("Failed to scrape %s, skipping", result.url, exc_info=True)
         return None
     return result, page
 
 
-def retrieve_and_chunk_node(state: ResearchState, firecrawl: FirecrawlProvider) -> dict:
+def retrieve_and_chunk_node(state: ResearchState, search_provider: SearchProvider) -> dict:
     search_results = state["search_results"]
     all_chunks: list[Chunk] = []
 
@@ -34,7 +34,7 @@ def retrieve_and_chunk_node(state: ResearchState, firecrawl: FirecrawlProvider) 
     max_workers = min(len(search_results), MAX_SCRAPE_WORKERS)
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         outcomes = executor.map(
-            lambda result: _scrape_result(firecrawl, result), search_results
+            lambda result: _scrape_result(search_provider, result), search_results
         )
         for outcome in outcomes:
             if outcome is None:

@@ -4,14 +4,14 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes.search import router as search_router
-from app.api.routes.documents import router as documents_router
 from app.api.routes.answer import router as answer_router
-from app.infrastructure.search.firecrawl import FirecrawlProvider
+from app.api.routes.documents import router as documents_router
+from app.api.routes.search import router as search_router
 from app.application.services.document import DocumentService
 from app.application.services.research import ResearchService
 from app.application.services.search import SearchService
 from app.core.config import get_settings
+from app.infrastructure.search.firecrawl import FirecrawlProvider
 
 logging.basicConfig(
     level=logging.INFO,
@@ -21,10 +21,10 @@ logging.basicConfig(
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    firecrawl = FirecrawlProvider()
-    app.state.research_service = ResearchService(firecrawl=firecrawl)
-    app.state.search_service = SearchService(provider=firecrawl)
-    app.state.document_service = DocumentService(provider=firecrawl)
+    search_provider = FirecrawlProvider()
+    app.state.research_service = ResearchService(search_provider=search_provider)
+    app.state.search_service = SearchService(provider=search_provider)
+    app.state.document_service = DocumentService(provider=search_provider)
     yield
 
 
