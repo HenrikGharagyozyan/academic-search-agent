@@ -28,8 +28,8 @@ from app.agents.nodes import (
 from app.agents.state import ResearchState
 from app.core.config import get_settings
 from app.infrastructure.search.firecrawl import FirecrawlProvider
-from app.providers.gemini_provider import GeminiProvider
-from app.providers.openrouter_provider import OpenRouterProvider
+from app.infrastructure.llm.gemini import GeminiProvider
+from app.infrastructure.llm.openrouter import OpenRouterProvider
 from app.infrastructure.vector_store.chroma import ChromaVectorStore
 
 

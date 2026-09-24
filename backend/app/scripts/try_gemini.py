@@ -1,4 +1,4 @@
-from app.providers.gemini_provider import GeminiProvider
+from app.infrastructure.llm.gemini import GeminiProvider
 
 if __name__ == "__main__":
     provider = GeminiProvider()

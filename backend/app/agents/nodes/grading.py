@@ -1,12 +1,12 @@
 import logging
 
 from app.agents.state import ResearchState
-from app.providers.gemini_provider import GeminiProvider
+from app.ports.llm import LLMProvider
 
 logger = logging.getLogger(__name__)
 
 
-def grade_relevance_node(state: ResearchState, gemini: GeminiProvider) -> dict:
+def grade_relevance_node(state: ResearchState, gemini: LLMProvider) -> dict:
     if not state["selected_chunks"]:
         return {"selected_chunks": []}
 
@@ -27,7 +27,7 @@ def grade_relevance_node(state: ResearchState, gemini: GeminiProvider) -> dict:
     return {"selected_chunks": [c for c in state["selected_chunks"] if c.chunk_id in relevant_ids]}
 
 
-def grade_answer_node(state: ResearchState, gemini: GeminiProvider) -> dict:
+def grade_answer_node(state: ResearchState, gemini: LLMProvider) -> dict:
     if not state["claims"]:
         return {"evidence_sufficient": False}
 

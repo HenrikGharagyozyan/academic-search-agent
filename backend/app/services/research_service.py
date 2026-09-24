@@ -6,7 +6,7 @@ from app.agents.constants import STAGE_LABELS
 from app.agents.graph import build_research_graph
 from app.core.exceptions import ResearchServiceError, UpstreamServiceError
 from app.infrastructure.search.firecrawl import FirecrawlProvider
-from app.providers.gemini_provider import GeminiProvider
+from app.infrastructure.llm.gemini import GeminiProvider
 from app.infrastructure.vector_store.chroma import ChromaVectorStore
 from app.domain.answers import Answer, AnswerEvidence
 from app.domain.documents import Chunk

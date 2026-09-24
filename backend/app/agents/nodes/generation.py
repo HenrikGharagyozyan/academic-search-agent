@@ -1,7 +1,7 @@
 import logging
 
 from app.agents.state import ResearchState
-from app.providers.gemini_provider import GeminiProvider
+from app.ports.llm import LLMProvider
 from app.domain.text.latex import restore_latex
 from app.domain.text.cleanup import strip_evidence_ids
 
@@ -13,7 +13,7 @@ def _presentable(text: str) -> str:
     return strip_evidence_ids(restore_latex(text))
 
 
-def generate_claims_node(state: ResearchState, gemini: GeminiProvider) -> dict:
+def generate_claims_node(state: ResearchState, gemini: LLMProvider) -> dict:
     if not state["selected_chunks"]:
         return {"summary": "", "claims": [], "conclusion": ""}
 
