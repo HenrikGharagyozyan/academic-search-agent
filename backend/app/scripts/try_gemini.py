@@ -1,36 +1,30 @@
-from app.infrastructure.llm.gemini import GeminiProvider
+"""Manual smoke check against the configured live LLM provider."""
+
+from app.domain.documents import Chunk
+from app.infrastructure.llm import create_llm_provider
+
+
+def _chunk(chunk_id: str, text: str) -> Chunk:
+    return Chunk(
+        chunk_id=chunk_id,
+        document_id="manual",
+        text=text,
+        start_line=1,
+        end_line=1,
+        source_url="https://example.com",
+        title="Manual check",
+    )
+
 
 if __name__ == "__main__":
-    provider = GeminiProvider()
+    llm = create_llm_provider()
+    print(f"provider={llm.provider_name} model={llm.model_name}")
 
-    question = "How does gradient descent converge for convex functions?"
-    evidence_chunks = [
-        {
-            "chunk_id": "ev_1",
-            "text": (
-                "When the function f is convex, all local minima are also "
-                "global minima, so in this case gradient descent can converge "
-                "to the global solution."
-            ),
-        },
-        {
-            "chunk_id": "ev_2",
-            "text": (
-                "If the objective is assumed to be strongly convex and "
-                "Lipschitz smooth, then gradient descent converges linearly "
-                "with a fixed step size."
-            ),
-        },
-    ]
-
-    result = provider.generate_answer(question, evidence_chunks)
-
-    print(f"Summary: {result.summary}\n")
-
-    for claim in result.claims:
-        print(f"- {claim.text}")
-        print(f"  evidence_ids: {claim.evidence_ids}")
-        print(f"  confidence: {claim.confidence}")
-        print()
-
-    print(f"Conclusion: {result.conclusion}")
+    result = llm.generate_answer(
+        "What is gradient descent?",
+        [
+            _chunk("ev_1", "Gradient descent iteratively steps against the gradient."),
+            _chunk("ev_2", "For convex objectives it converges to the global minimum."),
+        ],
+    )
+    print(result.model_dump_json(indent=2))
