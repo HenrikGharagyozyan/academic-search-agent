@@ -24,12 +24,9 @@ def grade_relevance_node(state: ResearchState, gemini: GeminiProvider) -> dict:
     )
 
     relevant_ids = set(grade.relevant_chunk_ids)
-    filtered = [c for c in state["selected_chunks"] if c.chunk_id in relevant_ids]
-
-    if not filtered:
-        return {"selected_chunks": []}
-
-    return {"selected_chunks": filtered}
+    # An empty result is kept as-is: an answer built on chunks the judge
+    # rejected is worse than no answer at all.
+    return {"selected_chunks": [c for c in state["selected_chunks"] if c.chunk_id in relevant_ids]}
 
 
 def grade_answer_node(state: ResearchState, gemini: GeminiProvider) -> dict:
