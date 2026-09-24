@@ -24,7 +24,7 @@ class GeminiEmbeddingsProvider:
     def __init__(self) -> None:
         settings = get_settings()
         self._embeddings = GoogleGenerativeAIEmbeddings(
-            model="models/gemini-embedding-001",
+            model=settings.embedding_model,
             google_api_key=settings.gemini_api_key,
         )
         self._cache: cachetools.TTLCache = cachetools.TTLCache(

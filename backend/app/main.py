@@ -11,6 +11,7 @@ from app.infrastructure.search.firecrawl import FirecrawlProvider
 from app.services.document_service import DocumentService
 from app.services.research_service import ResearchService
 from app.services.search_service import SearchService
+from app.core.config import get_settings
 
 logging.basicConfig(
     level=logging.INFO,
@@ -31,7 +32,7 @@ app = FastAPI(title="Academic Search Agent API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=get_settings().cors_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )

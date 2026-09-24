@@ -1,7 +1,7 @@
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import model_validator
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Keys of the provider registry. Declared here so a misspelled LLM_PROVIDER is
@@ -18,6 +18,10 @@ class Settings(BaseSettings):
     llm_provider: ProviderName = "gemini"
     # Empty means "whatever the registry lists as this provider's default".
     llm_model: str = ""
+
+    embedding_model: str = "models/gemini-embedding-001"
+
+    cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:5173"])
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
