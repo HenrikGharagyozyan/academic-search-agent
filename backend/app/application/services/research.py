@@ -58,18 +58,24 @@ class ResearchService:
         """Yields SSE-ready events ({"event": ..., "data": ...}): one "progress"
         event per completed graph node, then a final "result" event with the
         full Answer, or an "error" event if the pipeline fails."""
-        state = self._initial_state(question)
+        # "updates" drives the progress events; "values" carries the state the
+        # answer is built from. Reconstructing that state here by hand would
+        # duplicate the graph's own reducers, and the copy would diverge the
+        # moment a field in ResearchState grew one — leaving /answer and
+        # /answer/stream returning different answers to the same question.
+        state: dict[str, Any] = self._initial_state(question)
 
         try:
-            for update in self._graph.stream(
+            for mode, payload in self._graph.stream(
                 state,
                 config={"recursion_limit": RECURSION_LIMIT},
-                stream_mode="updates",
+                stream_mode=["updates", "values"],
             ):
-                for node_name, node_output in update.items():
-                    if node_output is None:
-                        continue
-                    state.update(node_output)
+                if mode == "values":
+                    state = payload
+                    continue
+
+                for node_name in payload:
                     yield {
                         "event": "progress",
                         "data": {

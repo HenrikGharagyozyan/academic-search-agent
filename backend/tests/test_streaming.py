@@ -140,3 +140,40 @@ def test_endpoint_rejects_an_invalid_question_before_streaming(client, mock_rese
 
     assert response.status_code == 422
     mock_research_service.stream_answer.assert_not_called()
+
+
+def test_streamed_answer_matches_the_synchronous_one(pipeline, keep_all_chunks_relevant):
+    """The two endpoints run the same graph and must not disagree. The stream
+    used to rebuild the final state by hand instead of reading the graph's own,
+    so any field with a reducer would have made them diverge silently."""
+    service, _, _ = pipeline
+    question = "Does gradient descent converge?"
+
+    streamed = [e for e in service.stream_answer(question) if e["event"] == "result"][0]["data"]
+    synchronous = service.answer(question).model_dump(mode="json")
+
+    def without_generated_ids(answer: dict) -> dict:
+        # chunk ids are uuid4, so compare the shape rather than the identity
+        answer = dict(answer)
+        answer["claims"] = [{**c, "evidence_ids": ["<id>"]} for c in answer["claims"]]
+        answer["evidence"] = {
+            "<id>": {**v, "chunk_id": "<id>"} for v in answer["evidence"].values()
+        }
+        return answer
+
+    assert without_generated_ids(streamed) == without_generated_ids(synchronous)
+
+
+def test_progress_covers_every_pipeline_stage(pipeline):
+    events = list(pipeline[0].stream_answer("q?"))
+    stages = [e["data"]["stage"] for e in events if e["event"] == "progress"]
+
+    assert stages == [
+        "search",
+        "retrieve_and_chunk",
+        "select_relevant_chunks",
+        "grade_relevance",
+        "generate_claims",
+        "verify_evidence",
+        "grade_answer",
+    ]
