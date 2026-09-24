@@ -1,4 +1,4 @@
-from app.providers.latex import restore_latex
+from app.domain.text.latex import restore_latex
 
 
 def test_restores_backslashes_inside_inline_math():

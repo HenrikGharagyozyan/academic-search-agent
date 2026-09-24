@@ -2,8 +2,8 @@ import logging
 
 from app.agents.state import ResearchState
 from app.providers.gemini_provider import GeminiProvider
-from app.providers.latex import restore_latex
-from app.providers.text_cleanup import strip_evidence_ids
+from app.domain.text.latex import restore_latex
+from app.domain.text.cleanup import strip_evidence_ids
 
 logger = logging.getLogger(__name__)
 

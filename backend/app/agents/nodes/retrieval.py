@@ -4,8 +4,8 @@ from concurrent.futures import ThreadPoolExecutor
 from app.agents.state import ResearchState
 from app.domain.search import ScrapedPage, SearchResult
 from app.providers.firecrawl_provider import FirecrawlProvider
-from app.retrieval.chunker import chunk_lines, deduplicate_chunks
-from app.retrieval.text_splitter import split_into_lines
+from app.domain.text.chunker import chunk_lines, deduplicate_chunks
+from app.domain.text.splitter import split_into_lines
 from app.domain.documents import Chunk
 from app.agents.constants import MAX_SCRAPE_WORKERS
 

@@ -1,5 +1,5 @@
 from app.providers.firecrawl_provider import FirecrawlProvider
-from app.retrieval.text_splitter import split_into_lines
+from app.domain.text.splitter import split_into_lines
 from app.domain.documents import ParsedDocument
 
 

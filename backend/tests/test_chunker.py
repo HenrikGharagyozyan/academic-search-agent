@@ -1,5 +1,5 @@
-from app.retrieval.chunker import CHUNK_CHAR_BUDGET, chunk_lines, deduplicate_chunks
-from app.retrieval.text_splitter import split_into_lines
+from app.domain.text.chunker import CHUNK_CHAR_BUDGET, chunk_lines, deduplicate_chunks
+from app.domain.text.splitter import split_into_lines
 from app.domain.documents import Chunk, DocumentLine
 
 

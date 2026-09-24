@@ -1,4 +1,4 @@
-from app.providers.text_cleanup import strip_evidence_ids
+from app.domain.text.cleanup import strip_evidence_ids
 
 # Strings copied from answers the model actually produced.
 A = "135fb597-524d-4b09-8b9c-1516cb978b-444a-b2c-934cb8af1918"
