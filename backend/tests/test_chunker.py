@@ -139,3 +139,18 @@ def test_deduplicate_chunks_drops_repeated_boilerplate():
     assert len(result) == 2
     assert result[0].source_url == "https://a.com"
     assert result[1].text == "Real unique research content here."
+
+def test_chunk_lines_does_not_emit_a_lone_paragraph_twice():
+    """The overlap carried a whole paragraph forward even when the buffer held
+    only that one paragraph, so it shipped once alone and again with the next
+    one — duplicate embeddings, and duplicates competing for the top-k slots."""
+    big = "B" * 1300  # fits the budget alone, leaves no room for a neighbour
+    markdown = "\n\n".join([big, "S" * 200, "S" * 200, "S" * 200])
+    lines = split_into_lines(markdown)
+
+    chunks = chunk_lines("doc1", lines, source_url="https://example.com", title="Example")
+
+    texts = [c.text for c in chunks]
+    for i, text in enumerate(texts):
+        others = texts[:i] + texts[i + 1 :]
+        assert not any(text in other for other in others), "a chunk is contained in another"

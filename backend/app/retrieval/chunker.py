@@ -124,37 +124,58 @@ def _pack_by_char_budget(
 ) -> list[_Piece]:
     pieces: list[_Piece] = []
     buffer: list[_Paragraph] = []
-    buffer_chars = 0
+    carried = 0  # leading paragraphs in the buffer held over from the last piece
 
-    def flush() -> list[_Paragraph]:
-        text = "\n\n".join(p.text for p in buffer)
-        pieces.append(_Piece(text, buffer[0].start_line, buffer[-1].end_line))
+    def buffered_chars() -> int:
+        """Length of the text flush() would emit, separators included."""
+        if not buffer:
+            return 0
+        return sum(len(p.text) for p in buffer) + 2 * (len(buffer) - 1)
 
+    def flush() -> None:
+        nonlocal buffer, carried
+        pieces.append(
+            _Piece(
+                "\n\n".join(p.text for p in buffer),
+                buffer[0].start_line,
+                buffer[-1].end_line,
+            )
+        )
+
+        # Carry a tail of the emitted piece so the next one overlaps it. Only
+        # paragraphs after the first are eligible: carrying a lone paragraph
+        # would emit that same text again as a chunk of its own.
         carry: list[_Paragraph] = []
         carry_chars = 0
-        for p in reversed(buffer):
-            if carry_chars >= overlap:
+        for paragraph in reversed(buffer[1:]):
+            if carry and carry_chars >= overlap:
                 break
-            carry.insert(0, p)
-            carry_chars += len(p.text)
-        return carry
+            carry.insert(0, paragraph)
+            carry_chars += len(paragraph.text)
+
+        buffer = carry
+        carried = len(carry)
 
     for paragraph in paragraphs:
         if not buffer and len(paragraph.text) > budget:
             pieces.append(_Piece(paragraph.text, paragraph.start_line, paragraph.end_line))
             continue
 
-        projected = buffer_chars + len(paragraph.text) + (2 if buffer else 0)
-        if buffer and projected > budget:
-            buffer = flush()
-            buffer_chars = sum(len(p.text) for p in buffer)
+        over_budget = buffered_chars() + 2 + len(paragraph.text) > budget
+        # A buffer holding nothing but carry-over has no new content to
+        # emit; flushing it would just repeat the previous piece.
+        if over_budget and len(buffer) > carried:
+            flush()
 
         buffer.append(paragraph)
-        buffer_chars += len(paragraph.text) + (2 if len(buffer) > 1 else 0)
 
-    if buffer:
+    if buffer and len(buffer) > carried:
         pieces.append(
-            _Piece("\n\n".join(p.text for p in buffer), buffer[0].start_line, buffer[-1].end_line)
+            _Piece(
+                "\n\n".join(p.text for p in buffer),
+                buffer[0].start_line,
+                buffer[-1].end_line,
+            )
         )
 
     return pieces
