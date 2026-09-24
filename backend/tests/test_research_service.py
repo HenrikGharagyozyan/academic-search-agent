@@ -1,8 +1,8 @@
 from unittest.mock import MagicMock
 
 from app.agents.constants import MAX_RETRIES
-from app.providers.firecrawl_provider import ScrapedPage, SearchResult
-from app.schemas.answer import Claim, ClaimsResponse
+from app.domain.search import ScrapedPage, SearchResult
+from app.domain.answers import Claim, ClaimsResponse
 from app.services.research_service import ResearchService
 
 

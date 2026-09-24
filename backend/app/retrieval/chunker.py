@@ -1,7 +1,7 @@
 import re
 import uuid
 
-from app.schemas.document import Chunk, DocumentLine
+from app.domain.documents import Chunk, DocumentLine
 
 # Chunks are packed according to the budget of characters, not strings — Firecrawl puts one
 # a paragraph (or headline) per line separated by blank lines, so that

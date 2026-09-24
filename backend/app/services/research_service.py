@@ -8,8 +8,8 @@ from app.core.exceptions import ResearchServiceError, UpstreamServiceError
 from app.providers.firecrawl_provider import FirecrawlProvider
 from app.providers.gemini_provider import GeminiProvider
 from app.retrieval.vector_store import ChunkVectorStore
-from app.schemas.answer import Answer, AnswerEvidence
-from app.schemas.document import Chunk
+from app.domain.answers import Answer, AnswerEvidence
+from app.domain.documents import Chunk
 
 logger = logging.getLogger(__name__)
 

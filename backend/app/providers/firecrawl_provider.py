@@ -2,24 +2,13 @@ import threading
 
 import cachetools
 from firecrawl import FirecrawlApp
-from pydantic import BaseModel
 
 from app.core.config import get_settings
+from app.domain.search import ScrapedPage, SearchResult
 
 SCRAPE_CACHE_TTL_SECONDS = 3600
 SCRAPE_CACHE_MAXSIZE = 256
 
-
-class SearchResult(BaseModel):
-    title: str
-    url: str
-    snippet: str
-
-
-class ScrapedPage(BaseModel):
-    url: str
-    title: str
-    markdown: str
 
 
 class FirecrawlProvider:

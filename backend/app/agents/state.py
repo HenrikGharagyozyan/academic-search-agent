@@ -1,8 +1,8 @@
 from typing import TypedDict
 
-from app.schemas.answer import Claim
-from app.schemas.document import Chunk
-from app.providers.firecrawl_provider import SearchResult
+from app.domain.answers import Claim
+from app.domain.documents import Chunk
+from app.domain.search import SearchResult
 
 
 class ResearchState(TypedDict):

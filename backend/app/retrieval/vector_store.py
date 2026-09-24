@@ -4,7 +4,7 @@ import uuid
 import chromadb
 
 from app.providers.embedding_provider import EmbeddingProvider
-from app.schemas.document import Chunk
+from app.domain.documents import Chunk
 
 logger = logging.getLogger(__name__)
 

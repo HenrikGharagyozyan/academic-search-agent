@@ -1,6 +1,6 @@
 from app.providers.firecrawl_provider import FirecrawlProvider
 from app.retrieval.text_splitter import split_into_lines
-from app.schemas.document import ParsedDocument
+from app.domain.documents import ParsedDocument
 
 
 class DocumentService:

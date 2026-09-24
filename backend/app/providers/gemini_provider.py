@@ -2,8 +2,8 @@ from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponen
 
 from app.core.config import get_settings
 from app.providers.prompts import ANSWER_PROMPT, REFINE_PROMPT, ANSWER_QUALITY_PROMPT, RELEVANCE_GRADE_PROMPT
-from app.schemas.answer import Claim, ClaimsResponse
-from app.schemas.grading import RelevanceGrade, AnswerQualityGrade
+from app.domain.answers import Claim, ClaimsResponse
+from app.domain.grading import RelevanceGrade, AnswerQualityGrade
 from langchain_google_genai import ChatGoogleGenerativeAI
 
 

@@ -1,6 +1,6 @@
 from app.retrieval.chunker import CHUNK_CHAR_BUDGET, chunk_lines, deduplicate_chunks
 from app.retrieval.text_splitter import split_into_lines
-from app.schemas.document import Chunk, DocumentLine
+from app.domain.documents import Chunk, DocumentLine
 
 
 def test_chunk_lines_packs_small_paragraphs_into_one_chunk():

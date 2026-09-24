@@ -1,9 +1,9 @@
 from unittest.mock import MagicMock
 
 from app.agents.nodes.grading import grade_relevance_node, grade_answer_node
-from app.schemas.document import Chunk
-from app.schemas.grading import RelevanceGrade, AnswerQualityGrade
-from app.schemas.answer import Claim
+from app.domain.documents import Chunk
+from app.domain.grading import RelevanceGrade, AnswerQualityGrade
+from app.domain.answers import Claim
 
 
 def make_chunk(chunk_id: str) -> Chunk:

@@ -1,4 +1,4 @@
-from app.schemas.document import DocumentLine, ParsedDocument
+from app.domain.documents import DocumentLine, ParsedDocument
 
 
 def test_get_document_returns_parsed_document(client, mock_document_service):

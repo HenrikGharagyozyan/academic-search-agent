@@ -2,7 +2,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from app.schemas.answer import Claim, ClaimsResponse
+from app.domain.answers import Claim, ClaimsResponse
 
 
 @patch("app.providers.gemini_provider.ChatGoogleGenerativeAI")

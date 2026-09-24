@@ -1,5 +1,5 @@
 from app.core.exceptions import ResearchServiceError, UpstreamServiceError
-from app.schemas.answer import Answer
+from app.domain.answers import Answer
 
 
 def test_answer_endpoint_returns_502_on_upstream_failure(client, mock_research_service):

@@ -2,8 +2,8 @@ from unittest.mock import MagicMock
 
 from app.agents.constants import MAX_RETRIES
 from app.agents.graph import build_research_graph
-from app.providers.firecrawl_provider import ScrapedPage, SearchResult
-from app.schemas.answer import Claim, ClaimsResponse
+from app.domain.search import ScrapedPage, SearchResult
+from app.domain.answers import Claim, ClaimsResponse
 
 
 def test_graph_runs_end_to_end_with_mocks(keep_all_chunks_relevant):

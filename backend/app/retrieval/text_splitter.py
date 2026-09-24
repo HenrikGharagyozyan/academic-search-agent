@@ -1,4 +1,4 @@
-from app.schemas.document import DocumentLine
+from app.domain.documents import DocumentLine
 
 
 def split_into_lines(markdown: str) -> list[DocumentLine]:

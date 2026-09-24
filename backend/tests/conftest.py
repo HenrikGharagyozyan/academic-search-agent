@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 from app.api.deps import get_document_service, get_research_service, get_search_service
 from app.core.config import get_settings
 from app.main import app
-from app.schemas.grading import RelevanceGrade
+from app.domain.grading import RelevanceGrade
 
 
 @pytest.fixture

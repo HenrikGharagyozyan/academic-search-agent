@@ -1,6 +1,6 @@
 from app.agents.constants import MAX_RETRIES, ROUTE_END, ROUTE_REFINE
 from app.agents.state import ResearchState
-from app.schemas.answer import Claim
+from app.domain.answers import Claim
 
 
 def verify_evidence_node(state: ResearchState) -> dict:

@@ -1,7 +1,7 @@
 from unittest.mock import MagicMock
 
 from app.retrieval.vector_store import ChunkVectorStore
-from app.schemas.document import Chunk
+from app.domain.documents import Chunk
 
 
 def make_chunk(chunk_id: str, text: str) -> Chunk:

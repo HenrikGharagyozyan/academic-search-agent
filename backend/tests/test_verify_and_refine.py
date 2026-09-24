@@ -2,8 +2,8 @@ from unittest.mock import MagicMock
 
 from app.agents.nodes import verify_evidence_node
 from app.agents.nodes import refine_query_node
-from app.schemas.answer import Claim
-from app.schemas.document import Chunk
+from app.domain.answers import Claim
+from app.domain.documents import Chunk
 
 
 def make_chunk(chunk_id: str) -> Chunk:
