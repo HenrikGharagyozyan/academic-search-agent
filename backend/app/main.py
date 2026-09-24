@@ -1,4 +1,3 @@
-import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -11,12 +10,10 @@ from app.application.services.document import DocumentService
 from app.application.services.research import ResearchService
 from app.application.services.search import SearchService
 from app.core.config import get_settings
+from app.core.logging import configure_logging
 from app.infrastructure.search.firecrawl import FirecrawlProvider
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
-)
+configure_logging()
 
 
 @asynccontextmanager
