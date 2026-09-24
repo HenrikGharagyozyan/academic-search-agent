@@ -3,6 +3,14 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from app.domain.answers import Claim, ClaimsResponse
+from app.domain.documents import Chunk
+
+
+def make_chunk(chunk_id: str = "ev_1") -> Chunk:
+    return Chunk(
+        chunk_id=chunk_id, document_id="doc1", text="x",
+        start_line=1, end_line=1, source_url="https://example.com", title="Example",
+    )
 
 
 @patch("app.providers.gemini_provider.ChatGoogleGenerativeAI")
@@ -27,7 +35,7 @@ def test_generate_answer_retries_on_transient_error_then_succeeds(mock_llm_cls, 
     mock_llm_cls.return_value = mock_llm_instance
 
     provider = GeminiProvider()
-    result = provider.generate_answer("q?", [{"chunk_id": "ev_1", "text": "x"}])
+    result = provider.generate_answer("q?", [make_chunk()])
 
     assert result.summary == "Test summary"
     assert len(result.claims) == 1
@@ -52,7 +60,7 @@ def test_generate_answer_gives_up_after_max_attempts(mock_llm_cls, monkeypatch):
     provider = GeminiProvider()
 
     with pytest.raises(RuntimeError):
-        provider.generate_answer("q?", [{"chunk_id": "ev_1", "text": "x"}])
+        provider.generate_answer("q?", [make_chunk()])
 
     assert mock_structured_llm.invoke.call_count == 3
 

@@ -10,17 +10,15 @@ def grade_relevance_node(state: ResearchState, gemini: GeminiProvider) -> dict:
     if not state["selected_chunks"]:
         return {"selected_chunks": []}
 
-    chunks = [{"chunk_id": c.chunk_id, "text": c.text} for c in state["selected_chunks"]]
-
     try:
-        grade = gemini.grade_relevance(state["question"], chunks)
+        grade = gemini.grade_relevance(state["question"], state["selected_chunks"])
     except Exception:
         logger.warning("Relevance grading failed, keeping all chunks", exc_info=True)
         return {}
 
     logger.info(
         "Relevance grade: %d/%d chunks kept. Reasoning: %s",
-        len(grade.relevant_chunk_ids), len(chunks), grade.reasoning,
+        len(grade.relevant_chunk_ids), len(state["selected_chunks"]), grade.reasoning,
     )
 
     relevant_ids = set(grade.relevant_chunk_ids)

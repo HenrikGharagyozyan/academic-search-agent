@@ -21,7 +21,7 @@ def keep_all_chunks_relevant():
 
     def _grade(question, chunks):
         return RelevanceGrade(
-            relevant_chunk_ids=[c["chunk_id"] for c in chunks],
+            relevant_chunk_ids=[c.chunk_id for c in chunks],
             reasoning="all relevant",
         )
 

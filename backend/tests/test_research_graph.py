@@ -24,7 +24,7 @@ def test_graph_runs_end_to_end_with_mocks(keep_all_chunks_relevant):
             claims=[
                 Claim(
                     text="A claim",
-                    evidence_ids=[evidence_chunks[0]["chunk_id"]],
+                    evidence_ids=[evidence_chunks[0].chunk_id],
                     confidence="high",
                 )
             ],
@@ -86,7 +86,7 @@ def test_graph_retries_when_no_evidence_found_then_succeeds(keep_all_chunks_rele
             claims=[
                 Claim(
                     text="Grounded claim",
-                    evidence_ids=[evidence_chunks[0]["chunk_id"]],
+                    evidence_ids=[evidence_chunks[0].chunk_id],
                     confidence="high",
                 )
             ],

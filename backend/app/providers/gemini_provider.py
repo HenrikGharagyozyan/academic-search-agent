@@ -1,7 +1,10 @@
+from collections.abc import Sequence
+
 from app.core.config import get_settings
 from app.infrastructure.llm.retry import llm_retry
 from app.infrastructure.llm.prompts import ANSWER_PROMPT, REFINE_PROMPT, ANSWER_QUALITY_PROMPT, RELEVANCE_GRADE_PROMPT
 from app.domain.answers import Claim, ClaimsResponse
+from app.domain.documents import Chunk
 from app.domain.grading import RelevanceGrade, AnswerQualityGrade
 from langchain_google_genai import ChatGoogleGenerativeAI
 
@@ -18,10 +21,10 @@ class GeminiProvider:
 
     @llm_retry
     def generate_answer(
-        self, question: str, evidence_chunks: list[dict]
+        self, question: str, evidence: Sequence[Chunk]
     ) -> ClaimsResponse:
         evidence_block = "\n\n".join(
-            f"[evidence_id: {c['chunk_id']}]\n{c['text']}" for c in evidence_chunks
+            f"[evidence_id: {c.chunk_id}]\n{c.text}" for c in evidence
         )
 
         prompt_value = ANSWER_PROMPT.invoke(
@@ -41,10 +44,10 @@ class GeminiProvider:
 
     @llm_retry
     def grade_relevance(
-        self, question: str, chunks: list[dict]
+        self, question: str, chunks: Sequence[Chunk]
     ) -> RelevanceGrade:
         chunks_block = "\n\n".join(
-            f"[chunk_id: {c['chunk_id']}]\n{c['text']}" for c in chunks
+            f"[chunk_id: {c.chunk_id}]\n{c.text}" for c in chunks
         )
         prompt_value = RELEVANCE_GRADE_PROMPT.invoke(
             {"question": question, "chunks_block": chunks_block}
@@ -54,7 +57,7 @@ class GeminiProvider:
 
     @llm_retry
     def grade_answer_quality(
-        self, question: str, summary: str, claims: list[Claim], conclusion: str
+        self, question: str, summary: str, claims: Sequence[Claim], conclusion: str
     ) -> AnswerQualityGrade:
         claims_block = "\n".join(f"- {c.text}" for c in claims)
         prompt_value = ANSWER_QUALITY_PROMPT.invoke(

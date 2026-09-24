@@ -21,7 +21,7 @@ def test_answer_builds_evidence_from_used_claims(keep_all_chunks_relevant):
     mock_gemini.grade_relevance.side_effect = keep_all_chunks_relevant
 
     def fake_generate_answer(question, evidence_chunks):
-        first_id = evidence_chunks[0]["chunk_id"]
+        first_id = evidence_chunks[0].chunk_id
         return ClaimsResponse(
             summary="Test summary",
             claims=[
@@ -106,7 +106,7 @@ def test_answer_skips_failed_scrape_and_continues(keep_all_chunks_relevant):
     mock_gemini.grade_relevance.side_effect = keep_all_chunks_relevant
 
     def fake_generate_answer(question, evidence_chunks):
-        first_id = evidence_chunks[0]["chunk_id"]
+        first_id = evidence_chunks[0].chunk_id
         return ClaimsResponse(
             summary="Test summary",
             claims=[Claim(text="Some claim", evidence_ids=[first_id], confidence="high")],
