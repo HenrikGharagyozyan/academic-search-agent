@@ -94,5 +94,14 @@ def test_domain_is_free_of_third_party_service_clients():
 def test_every_layer_directory_is_declared():
     # A new top-level package must be placed in the hierarchy deliberately,
     # not silently escape these checks.
-    on_disk = {p.name for p in APP.iterdir() if p.is_dir() and p.name != "__pycache__"}
+    #
+    # Only directories holding source count. Switching between branches that
+    # disagree about the layout leaves the old directories behind — git will
+    # not remove one that still contains a gitignored __pycache__ — and an
+    # empty leftover is not a layer anyone added.
+    on_disk = {
+        d.name
+        for d in APP.iterdir()
+        if d.is_dir() and d.name != "__pycache__" and any(d.rglob("*.py"))
+    }
     assert on_disk == set(ALLOWED)
