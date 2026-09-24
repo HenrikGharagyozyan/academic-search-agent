@@ -119,6 +119,49 @@ class _Piece:
         self.end_line = end_line
 
 
+def _split_text(text: str, budget: int) -> list[str]:
+    """Cuts a single over-long string into budget-sized parts on word boundaries."""
+    parts: list[str] = []
+    remaining = text
+
+    while len(remaining) > budget:
+        cut = remaining.rfind(" ", 0, budget + 1)
+        if cut <= 0:
+            cut = budget  # one unbroken run of characters: cut it hard
+        head = remaining[:cut].strip()
+        if head:
+            parts.append(head)
+        remaining = remaining[cut:].lstrip()
+
+    if remaining:
+        parts.append(remaining)
+
+    return parts
+
+
+def _split_oversized(paragraph: _Paragraph, budget: int) -> list[_Paragraph]:
+    """Breaks up a paragraph that on its own exceeds the budget.
+
+    A scraped line can be enormous — a whole article rendered without blank
+    lines, or a wide table row. Left whole it becomes a chunk many times the
+    budget, which pushes the embedding call past the model's input limit; and a
+    failed embedding call makes the vector store fall back to "first N chunks"
+    for the *entire* request, so one bad page would silently disable semantic
+    retrieval for the whole question.
+    """
+    if len(paragraph.text) <= budget:
+        return [paragraph]
+
+    parts: list[_Paragraph] = []
+    for line in paragraph.lines:
+        for text in _split_text(line.text, budget):
+            parts.append(
+                _Paragraph([DocumentLine(line_number=line.line_number, text=text)])
+            )
+
+    return parts
+
+
 def _pack_by_char_budget(
     paragraphs: list[_Paragraph], budget: int, overlap: int
 ) -> list[_Piece]:
@@ -157,17 +200,14 @@ def _pack_by_char_budget(
         carried = len(carry)
 
     for paragraph in paragraphs:
-        if not buffer and len(paragraph.text) > budget:
-            pieces.append(_Piece(paragraph.text, paragraph.start_line, paragraph.end_line))
-            continue
+        for part in _split_oversized(paragraph, budget):
+            over_budget = buffered_chars() + 2 + len(part.text) > budget
+            # A buffer holding nothing but carry-over has no new content to
+            # emit; flushing it would just repeat the previous piece.
+            if over_budget and len(buffer) > carried:
+                flush()
 
-        over_budget = buffered_chars() + 2 + len(paragraph.text) > budget
-        # A buffer holding nothing but carry-over has no new content to
-        # emit; flushing it would just repeat the previous piece.
-        if over_budget and len(buffer) > carried:
-            flush()
-
-        buffer.append(paragraph)
+            buffer.append(part)
 
     if buffer and len(buffer) > carried:
         pieces.append(

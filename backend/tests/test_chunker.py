@@ -1,4 +1,4 @@
-from app.retrieval.chunker import chunk_lines, deduplicate_chunks
+from app.retrieval.chunker import CHUNK_CHAR_BUDGET, chunk_lines, deduplicate_chunks
 from app.retrieval.text_splitter import split_into_lines
 from app.schemas.document import Chunk, DocumentLine
 
@@ -154,3 +154,27 @@ def test_chunk_lines_does_not_emit_a_lone_paragraph_twice():
     for i, text in enumerate(texts):
         others = texts[:i] + texts[i + 1 :]
         assert not any(text in other for other in others), "a chunk is contained in another"
+
+
+def test_chunk_lines_splits_a_paragraph_that_alone_exceeds_the_budget():
+    """A single scraped line can be a whole article with no blank lines in it.
+    Emitted whole it would be a chunk many times the budget, which overruns the
+    embedding model's input limit — and a failed embedding call drops the whole
+    request back to "first N chunks", disabling retrieval for every source."""
+    giant = "word " * 12000  # ~60k characters on one line
+    lines = split_into_lines(giant)
+
+    chunks = chunk_lines("doc1", lines, source_url="https://example.com", title="Example")
+
+    assert len(chunks) > 1
+    assert all(len(c.text) <= CHUNK_CHAR_BUDGET for c in chunks)
+
+
+def test_chunk_lines_splits_an_unbroken_run_with_no_word_boundaries():
+    # Minified content or a base64 blob offers nowhere to break on a space;
+    # the budget still has to hold.
+    lines = split_into_lines("x" * 9000)
+
+    chunks = chunk_lines("doc1", lines, source_url="https://example.com", title="Example")
+
+    assert all(len(c.text) <= CHUNK_CHAR_BUDGET for c in chunks)
