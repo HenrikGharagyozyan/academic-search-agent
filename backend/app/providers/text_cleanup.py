@@ -34,9 +34,13 @@ _LEFTOVERS = [
 
 def strip_evidence_ids(text: str) -> str:
     """Removes evidence ids the model wrote into prose, and tidies what is left."""
-    cleaned = _BRACKETED.sub("", text)
-    cleaned = _BARE.sub("", cleaned)
-    cleaned = _LOOSE.sub("", cleaned)
+    # Each pattern eats the whitespace on both sides of the id, so cutting one
+    # out of mid-sentence would run the surrounding words together
+    # ("Adam <id> converges" -> "Adamconverges"). Substituting a space keeps the
+    # word boundary; _LEFTOVERS then collapses whatever that leaves behind.
+    cleaned = _BRACKETED.sub(" ", text)
+    cleaned = _BARE.sub(" ", cleaned)
+    cleaned = _LOOSE.sub(" ", cleaned)
 
     for pattern, replacement in _LEFTOVERS:
         cleaned = pattern.sub(replacement, cleaned)

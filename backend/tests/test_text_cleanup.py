@@ -44,3 +44,21 @@ def test_leaves_ordinary_prose_untouched():
 def test_leaves_maths_and_punctuation_alone():
     text = r"The tensor $G_{\mu\nu}$ is symmetric, and $\Lambda$ is constant."
     assert strip_evidence_ids(text) == text
+
+
+def test_keeps_word_boundary_when_bare_id_sits_mid_sentence():
+    # The id patterns eat the whitespace on both sides, so a naive removal
+    # ran the neighbouring words together ("Adam <id> converges" ->
+    # "Adamconverges"). The surrounding prose must stay readable.
+    text = f"Adam {B} converges quickly."
+    assert strip_evidence_ids(text) == "Adam converges quickly."
+
+
+def test_keeps_word_boundary_around_a_run_of_bare_ids():
+    text = f"Two ids {B} {C} here."
+    assert strip_evidence_ids(text) == "Two ids here."
+
+
+def test_keeps_word_boundary_before_a_connector():
+    text = f"Values {B} and cost matter."
+    assert strip_evidence_ids(text) == "Values and cost matter."
