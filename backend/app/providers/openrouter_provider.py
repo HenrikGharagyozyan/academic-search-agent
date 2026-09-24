@@ -1,6 +1,5 @@
-from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponential
-
 from app.core.config import get_settings
+from app.infrastructure.llm.retry import llm_retry
 from app.infrastructure.llm.prompts import (
     ANSWER_PROMPT, REFINE_PROMPT, ANSWER_QUALITY_PROMPT, RELEVANCE_GRADE_PROMPT,
 )
@@ -9,19 +8,6 @@ from app.domain.grading import RelevanceGrade, AnswerQualityGrade
 from langchain_openai import ChatOpenAI
 
 REQUEST_TIMEOUT_SECONDS = 30
-
-
-def _is_transient_error(exc: BaseException) -> bool:
-    message = str(exc).lower()
-    return "429" in message or "502" in message or "503" in message or "overloaded" in message
-
-
-openrouter_retry = retry(
-    retry=retry_if_exception(_is_transient_error),
-    stop=stop_after_attempt(3),
-    wait=wait_exponential(multiplier=1, min=2, max=15),
-    reraise=True,
-)
 
 
 class OpenRouterProvider:
@@ -38,7 +24,7 @@ class OpenRouterProvider:
         )
         self._structured_llm = self._llm.with_structured_output(ClaimsResponse)
 
-    @openrouter_retry
+    @llm_retry
     def generate_answer(self, question: str, evidence_chunks: list[dict]) -> ClaimsResponse:
         evidence_block = "\n\n".join(
             f"[evidence_id: {c['chunk_id']}]\n{c['text']}" for c in evidence_chunks
@@ -49,7 +35,7 @@ class OpenRouterProvider:
         result: ClaimsResponse = self._structured_llm.invoke(prompt_value)
         return result
 
-    @openrouter_retry
+    @llm_retry
     def refine_query(self, question: str, previous_query: str) -> str:
         prompt_value = REFINE_PROMPT.invoke(
             {"question": question, "previous_query": previous_query}
@@ -57,7 +43,7 @@ class OpenRouterProvider:
         response = self._llm.invoke(prompt_value)
         return response.text.strip()
 
-    @openrouter_retry
+    @llm_retry
     def grade_relevance(self, question: str, chunks: list[dict]) -> RelevanceGrade:
         chunks_block = "\n\n".join(
             f"[chunk_id: {c['chunk_id']}]\n{c['text']}" for c in chunks
@@ -68,7 +54,7 @@ class OpenRouterProvider:
         structured = self._llm.with_structured_output(RelevanceGrade)
         return structured.invoke(prompt_value)
 
-    @openrouter_retry
+    @llm_retry
     def grade_answer_quality(
         self, question: str, summary: str, claims: list[Claim], conclusion: str
     ) -> AnswerQualityGrade:
