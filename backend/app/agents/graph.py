@@ -27,10 +27,10 @@ from app.agents.nodes import (
 )
 from app.agents.state import ResearchState
 from app.core.config import get_settings
-from app.providers.firecrawl_provider import FirecrawlProvider
+from app.infrastructure.search.firecrawl import FirecrawlProvider
 from app.providers.gemini_provider import GeminiProvider
 from app.providers.openrouter_provider import OpenRouterProvider
-from app.retrieval.vector_store import ChunkVectorStore
+from app.infrastructure.vector_store.chroma import ChromaVectorStore
 
 
 def get_llm_provider():
@@ -43,11 +43,11 @@ def get_llm_provider():
 def build_research_graph(
     firecrawl: FirecrawlProvider | None = None,
     gemini: GeminiProvider | None = None,
-    vector_store: ChunkVectorStore | None = None,
+    vector_store: ChromaVectorStore | None = None,
 ):
     firecrawl = firecrawl or FirecrawlProvider()
     gemini = gemini or get_llm_provider()
-    vector_store = vector_store or ChunkVectorStore()
+    vector_store = vector_store or ChromaVectorStore()
 
     graph = StateGraph(ResearchState)
 

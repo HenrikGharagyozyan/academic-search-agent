@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.routes.search import router as search_router
 from app.api.routes.documents import router as documents_router
 from app.api.routes.answer import router as answer_router
-from app.providers.firecrawl_provider import FirecrawlProvider
+from app.infrastructure.search.firecrawl import FirecrawlProvider
 from app.services.document_service import DocumentService
 from app.services.research_service import ResearchService
 from app.services.search_service import SearchService

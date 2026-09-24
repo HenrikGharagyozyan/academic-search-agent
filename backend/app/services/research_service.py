@@ -5,9 +5,9 @@ from typing import Any
 from app.agents.constants import STAGE_LABELS
 from app.agents.graph import build_research_graph
 from app.core.exceptions import ResearchServiceError, UpstreamServiceError
-from app.providers.firecrawl_provider import FirecrawlProvider
+from app.infrastructure.search.firecrawl import FirecrawlProvider
 from app.providers.gemini_provider import GeminiProvider
-from app.retrieval.vector_store import ChunkVectorStore
+from app.infrastructure.vector_store.chroma import ChromaVectorStore
 from app.domain.answers import Answer, AnswerEvidence
 from app.domain.documents import Chunk
 
@@ -21,7 +21,7 @@ class ResearchService:
         self,
         firecrawl: FirecrawlProvider | None = None,
         gemini: GeminiProvider | None = None,
-        vector_store: ChunkVectorStore | None = None,
+        vector_store: ChromaVectorStore | None = None,
     ) -> None:
         self._graph = build_research_graph(firecrawl, gemini, vector_store)
 

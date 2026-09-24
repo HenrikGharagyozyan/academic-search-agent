@@ -3,15 +3,16 @@ import uuid
 
 import chromadb
 
-from app.providers.embedding_provider import EmbeddingProvider
+from app.infrastructure.embeddings.gemini import GeminiEmbeddingsProvider
 from app.domain.documents import Chunk
+from app.ports.embeddings import EmbeddingsProvider
 
 logger = logging.getLogger(__name__)
 
 
-class ChunkVectorStore:
-    def __init__(self, embedding_provider: EmbeddingProvider | None = None) -> None:
-        self._embeddings = embedding_provider or EmbeddingProvider()
+class ChromaVectorStore:
+    def __init__(self, embedding_provider: EmbeddingsProvider | None = None) -> None:
+        self._embeddings = embedding_provider or GeminiEmbeddingsProvider()
         self._client = chromadb.EphemeralClient()
 
     def select_relevant_chunks(

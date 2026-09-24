@@ -3,7 +3,7 @@ import logging
 from app.agents.state import ResearchState
 from app.agents.constants import MAX_SOURCES
 from app.core.exceptions import UpstreamServiceError
-from app.providers.firecrawl_provider import FirecrawlProvider
+from app.infrastructure.search.firecrawl import FirecrawlProvider
 
 logger = logging.getLogger(__name__)
 

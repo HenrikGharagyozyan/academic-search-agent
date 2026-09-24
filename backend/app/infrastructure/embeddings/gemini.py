@@ -20,7 +20,7 @@ def _is_rate_limit_error(exc: Exception) -> bool:
     return "RESOURCE_EXHAUSTED" in message or "429" in message
 
 
-class EmbeddingProvider:
+class GeminiEmbeddingsProvider:
     def __init__(self) -> None:
         settings = get_settings()
         self._embeddings = GoogleGenerativeAIEmbeddings(
