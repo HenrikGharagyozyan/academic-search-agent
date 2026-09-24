@@ -26,18 +26,10 @@ from app.agents.nodes import (
     verify_evidence_node,
 )
 from app.agents.state import ResearchState
-from app.core.config import get_settings
 from app.infrastructure.search.firecrawl import FirecrawlProvider
+from app.infrastructure.llm import create_llm_provider
 from app.infrastructure.llm.gemini import GeminiProvider
-from app.infrastructure.llm.openrouter import OpenRouterProvider
 from app.infrastructure.vector_store.chroma import ChromaVectorStore
-
-
-def get_llm_provider():
-    settings = get_settings()
-    if settings.llm_provider == "openrouter":
-        return OpenRouterProvider()
-    return GeminiProvider()
 
 
 def build_research_graph(
@@ -46,7 +38,7 @@ def build_research_graph(
     vector_store: ChromaVectorStore | None = None,
 ):
     firecrawl = firecrawl or FirecrawlProvider()
-    gemini = gemini or get_llm_provider()
+    gemini = gemini or create_llm_provider()
     vector_store = vector_store or ChromaVectorStore()
 
     graph = StateGraph(ResearchState)

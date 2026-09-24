@@ -10,11 +10,19 @@ from unittest.mock import MagicMock
 import pytest
 from langchain_core.messages import AIMessage
 
+from app.core.config import Settings
 from app.domain.answers import Claim, ClaimsResponse
 from app.domain.documents import Chunk
 from app.domain.grading import AnswerQualityGrade, RelevanceGrade
 from app.infrastructure.llm.base import LangChainLLMProvider
+from app.infrastructure.llm.registry import (
+    REGISTRY,
+    available_providers,
+    create_llm_provider,
+    resolve_model,
+)
 from app.infrastructure.llm.retry import MAX_ATTEMPTS, is_transient_error
+from app.ports.llm import LLMProvider
 
 
 def make_chunk(chunk_id: str = "ev_1", text: str = "some evidence") -> Chunk:
@@ -124,3 +132,59 @@ def test_every_vendor_wording_for_a_transient_failure_is_recognised(message):
 
 def test_a_genuine_error_is_not_mistaken_for_a_transient_one():
     assert not is_transient_error(ValueError("invalid evidence id"))
+
+
+# --- registry -------------------------------------------------------------
+
+
+def test_registry_covers_every_configurable_provider_name():
+    # Settings validates LLM_PROVIDER against a Literal; the registry must be
+    # able to build each name that Literal admits, or config passes and the
+    # build blows up at request time.
+    allowed = set(Settings.model_fields["llm_provider"].annotation.__args__)
+    assert allowed == set(REGISTRY)
+    assert available_providers() == sorted(allowed)
+
+
+@pytest.mark.parametrize("provider_name", sorted(REGISTRY))
+def test_each_registered_provider_satisfies_the_port(provider_name):
+    spec = REGISTRY[provider_name]
+    assert isinstance(spec.default_model, str) and spec.default_model
+    assert issubclass(spec.build, LangChainLLMProvider)
+
+
+def test_resolve_model_prefers_the_configured_override():
+    settings = Settings(
+        _env_file=None, firecrawl_api_key="x", gemini_api_key="x",
+        llm_provider="gemini", llm_model="gemini-custom",
+    )
+    assert resolve_model(settings) == "gemini-custom"
+
+
+def test_resolve_model_falls_back_to_the_provider_default():
+    settings = Settings(
+        _env_file=None, firecrawl_api_key="x", gemini_api_key="x", llm_provider="gemini",
+    )
+    assert resolve_model(settings) == REGISTRY["gemini"].default_model
+
+
+def test_create_llm_provider_builds_the_configured_provider(monkeypatch):
+    built = {}
+
+    def fake_chat_openai(**kwargs):
+        built.update(kwargs)
+        return MagicMock()
+
+    monkeypatch.setattr("app.infrastructure.llm.openrouter.ChatOpenAI", fake_chat_openai)
+    settings = Settings(
+        _env_file=None, firecrawl_api_key="x", gemini_api_key="x",
+        openrouter_api_key="or-key", llm_provider="openrouter", llm_model="some/model",
+    )
+
+    provider = create_llm_provider(settings)
+
+    assert isinstance(provider, LLMProvider)
+    assert provider.provider_name == "openrouter"
+    assert provider.model_name == "some/model"
+    assert built["model"] == "some/model"
+    assert built["api_key"] == "or-key"

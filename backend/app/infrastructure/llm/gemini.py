@@ -1,15 +1,13 @@
 from langchain_google_genai import ChatGoogleGenerativeAI
 
-from app.core.config import Settings, get_settings
+from app.core.config import Settings
 from app.infrastructure.llm.base import LangChainLLMProvider
 
-DEFAULT_MODEL = "gemini-3.6-flash"
 REQUEST_TIMEOUT_SECONDS = 30
 
 
 class GeminiProvider(LangChainLLMProvider):
-    def __init__(self, settings: Settings | None = None, model: str = DEFAULT_MODEL) -> None:
-        settings = settings or get_settings()
+    def __init__(self, settings: Settings, model: str) -> None:
         super().__init__(
             ChatGoogleGenerativeAI(
                 model=model,
