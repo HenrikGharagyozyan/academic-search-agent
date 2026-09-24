@@ -3,7 +3,7 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.api.deps import get_search_service
-from app.schemas.search import SearchRequest, SearchResponse
+from app.api.schemas.search import SearchRequest, SearchResponse
 from app.services.search_service import SearchService
 
 logger = logging.getLogger(__name__)

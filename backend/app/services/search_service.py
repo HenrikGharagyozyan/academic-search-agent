@@ -1,5 +1,5 @@
 from app.providers.firecrawl_provider import FirecrawlProvider
-from app.schemas.search import SearchResultItem
+from app.api.schemas.search import SearchResultItem
 
 
 class SearchService:

@@ -6,7 +6,7 @@ from fastapi.responses import StreamingResponse
 from app.api.deps import get_research_service
 from app.core.exceptions import ResearchServiceError, UpstreamServiceError
 from app.domain.answers import Answer
-from app.schemas.answer import AnswerRequest
+from app.api.schemas.answer import AnswerRequest
 from app.services.research_service import ResearchService
 
 router = APIRouter(prefix="/api/v1", tags=["answer"])
