@@ -1,6 +1,6 @@
 [project]
 name = "academic-search-agent-backend"
-version = "0.1.0"
+version = "0.3.0"
 description = "AI-powered academic research assistant backend"
 readme = "README.md"
 authors = [

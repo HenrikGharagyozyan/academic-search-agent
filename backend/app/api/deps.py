@@ -1,8 +1,8 @@
 from fastapi import Request
 
-from app.services.document_service import DocumentService
-from app.services.research_service import ResearchService
-from app.services.search_service import SearchService
+from app.application.services.document import DocumentService
+from app.application.services.research import ResearchService
+from app.application.services.search import SearchService
 
 
 def get_research_service(request: Request) -> ResearchService:

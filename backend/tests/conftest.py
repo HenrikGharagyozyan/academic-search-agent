@@ -1,12 +1,23 @@
+import os
 from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
 
-from app.api.deps import get_document_service, get_research_service, get_search_service
-from app.core.config import get_settings
-from app.main import app
-from app.schemas.grading import RelevanceGrade
+# Settings have to be in place before app.main is imported: building the CORS
+# middleware reads them, and that happens at import time, which is earlier than
+# any fixture can run. Assigning rather than using setdefault also pins the
+# values over whatever a developer keeps in backend/.env — otherwise the suite
+# runs against their real provider and keys locally, and against nothing in CI,
+# which is exactly how an import-time settings read reached CI unnoticed.
+os.environ["FIRECRAWL_API_KEY"] = "test-key"
+os.environ["GEMINI_API_KEY"] = "test-key"
+os.environ["LLM_PROVIDER"] = "gemini"
+
+from app.api.deps import get_document_service, get_research_service, get_search_service  # noqa: E402
+from app.core.config import get_settings  # noqa: E402
+from app.domain.grading import RelevanceGrade  # noqa: E402
+from app.main import app  # noqa: E402
 
 
 @pytest.fixture
@@ -21,17 +32,11 @@ def keep_all_chunks_relevant():
 
     def _grade(question, chunks):
         return RelevanceGrade(
-            relevant_chunk_ids=[c["chunk_id"] for c in chunks],
+            relevant_chunk_ids=[c.chunk_id for c in chunks],
             reasoning="all relevant",
         )
 
     return _grade
-
-
-@pytest.fixture(autouse=True)
-def fake_api_keys(monkeypatch):
-    monkeypatch.setenv("FIRECRAWL_API_KEY", "test-key")
-    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
 
 
 @pytest.fixture(autouse=True)

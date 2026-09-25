@@ -1,22 +1,22 @@
 from unittest.mock import MagicMock
 
-from app.agents.constants import MAX_RETRIES
-from app.agents.graph import build_research_graph
-from app.providers.firecrawl_provider import ScrapedPage, SearchResult
-from app.schemas.answer import Claim, ClaimsResponse
+from app.application.agents.constants import MAX_RETRIES
+from app.application.agents.graph import build_research_graph
+from app.domain.search import ScrapedPage, SearchResult
+from app.domain.answers import Claim, ClaimsResponse
 
 
 def test_graph_runs_end_to_end_with_mocks(keep_all_chunks_relevant):
-    mock_firecrawl = MagicMock()
-    mock_firecrawl.search.return_value = [
+    mock_search = MagicMock()
+    mock_search.search.return_value = [
         SearchResult(title="Paper", url="https://example.com", snippet="...")
     ]
-    mock_firecrawl.scrape.return_value = ScrapedPage(
+    mock_search.scrape.return_value = ScrapedPage(
         url="https://example.com", title="Paper", markdown="Some content here."
     )
 
-    mock_gemini = MagicMock()
-    mock_gemini.grade_relevance.side_effect = keep_all_chunks_relevant
+    mock_llm = MagicMock()
+    mock_llm.grade_relevance.side_effect = keep_all_chunks_relevant
 
     def fake_generate_answer(question, evidence_chunks):
         return ClaimsResponse(
@@ -24,19 +24,19 @@ def test_graph_runs_end_to_end_with_mocks(keep_all_chunks_relevant):
             claims=[
                 Claim(
                     text="A claim",
-                    evidence_ids=[evidence_chunks[0]["chunk_id"]],
+                    evidence_ids=[evidence_chunks[0].chunk_id],
                     confidence="high",
                 )
             ],
             conclusion="Test conclusion",
         )
 
-    mock_gemini.generate_answer.side_effect = fake_generate_answer
+    mock_llm.generate_answer.side_effect = fake_generate_answer
 
     mock_vector_store = MagicMock()
     mock_vector_store.select_relevant_chunks.side_effect = lambda question, chunks, top_k=15: chunks
 
-    graph = build_research_graph(firecrawl=mock_firecrawl, gemini=mock_gemini, vector_store=mock_vector_store)
+    graph = build_research_graph(search_provider=mock_search, llm=mock_llm, vector_store=mock_vector_store)
     result = graph.invoke(
         {
             "question": "test?",
@@ -57,17 +57,17 @@ def test_graph_runs_end_to_end_with_mocks(keep_all_chunks_relevant):
 
 
 def test_graph_retries_when_no_evidence_found_then_succeeds(keep_all_chunks_relevant):
-    mock_firecrawl = MagicMock()
-    mock_firecrawl.search.return_value = [
+    mock_search = MagicMock()
+    mock_search.search.return_value = [
         SearchResult(title="Paper", url="https://example.com", snippet="...")
     ]
-    mock_firecrawl.scrape.return_value = ScrapedPage(
+    mock_search.scrape.return_value = ScrapedPage(
         url="https://example.com", title="Paper", markdown="Some content here."
     )
 
-    mock_gemini = MagicMock()
-    mock_gemini.grade_relevance.side_effect = keep_all_chunks_relevant
-    mock_gemini.refine_query.return_value = "refined query"
+    mock_llm = MagicMock()
+    mock_llm.grade_relevance.side_effect = keep_all_chunks_relevant
+    mock_llm.refine_query.return_value = "refined query"
 
     call_count = {"n": 0}
 
@@ -86,20 +86,20 @@ def test_graph_retries_when_no_evidence_found_then_succeeds(keep_all_chunks_rele
             claims=[
                 Claim(
                     text="Grounded claim",
-                    evidence_ids=[evidence_chunks[0]["chunk_id"]],
+                    evidence_ids=[evidence_chunks[0].chunk_id],
                     confidence="high",
                 )
             ],
             conclusion="Test conclusion",
         )
 
-    mock_gemini.generate_answer.side_effect = fake_generate_answer
+    mock_llm.generate_answer.side_effect = fake_generate_answer
 
     mock_vector_store = MagicMock()
     mock_vector_store.select_relevant_chunks.side_effect = lambda question, chunks, top_k=15: chunks
 
     graph = build_research_graph(
-        firecrawl=mock_firecrawl, gemini=mock_gemini, vector_store=mock_vector_store
+        search_provider=mock_search, llm=mock_llm, vector_store=mock_vector_store
     )
     result = graph.invoke(
         {
@@ -118,22 +118,22 @@ def test_graph_retries_when_no_evidence_found_then_succeeds(keep_all_chunks_rele
 
     assert result["evidence_sufficient"] is True
     assert result["retry_count"] == 1
-    mock_gemini.refine_query.assert_called_once()
+    mock_llm.refine_query.assert_called_once()
 
 
 def test_graph_stops_after_max_retries_with_no_evidence(keep_all_chunks_relevant):
-    mock_firecrawl = MagicMock()
-    mock_firecrawl.search.return_value = [
+    mock_search = MagicMock()
+    mock_search.search.return_value = [
         SearchResult(title="Paper", url="https://example.com", snippet="...")
     ]
-    mock_firecrawl.scrape.return_value = ScrapedPage(
+    mock_search.scrape.return_value = ScrapedPage(
         url="https://example.com", title="Paper", markdown="Some content here."
     )
 
-    mock_gemini = MagicMock()
-    mock_gemini.grade_relevance.side_effect = keep_all_chunks_relevant
-    mock_gemini.refine_query.return_value = "refined query"
-    mock_gemini.generate_answer.return_value = ClaimsResponse(
+    mock_llm = MagicMock()
+    mock_llm.grade_relevance.side_effect = keep_all_chunks_relevant
+    mock_llm.refine_query.return_value = "refined query"
+    mock_llm.generate_answer.return_value = ClaimsResponse(
         summary="Ungrounded summary",
         claims=[Claim(text="Hallucinated", evidence_ids=["nonexistent"], confidence="low")],
         conclusion="Ungrounded conclusion",
@@ -143,7 +143,7 @@ def test_graph_stops_after_max_retries_with_no_evidence(keep_all_chunks_relevant
     mock_vector_store.select_relevant_chunks.side_effect = lambda question, chunks, top_k=15: chunks
 
     graph = build_research_graph(
-        firecrawl=mock_firecrawl, gemini=mock_gemini, vector_store=mock_vector_store
+        search_provider=mock_search, llm=mock_llm, vector_store=mock_vector_store
     )
     result = graph.invoke(
         {
