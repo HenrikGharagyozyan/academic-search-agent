@@ -1,5 +1,6 @@
 import logging
 
+from app.application.agents.activity import ActivityRecorder, count
 from app.application.agents.state import ResearchState
 from app.domain.text.cleanup import strip_evidence_ids
 from app.domain.text.latex import restore_latex
@@ -14,14 +15,23 @@ def _presentable(text: str) -> str:
 
 
 def generate_claims_node(state: ResearchState, llm: LLMProvider) -> dict:
+    empty = {"summary": "", "claims": [], "conclusion": ""}
     if not state["selected_chunks"]:
-        return {"summary": "", "claims": [], "conclusion": ""}
+        return empty
+
+    recorder = ActivityRecorder(attempt=state.get("retry_count", 0))
 
     try:
         result = llm.generate_answer(state["question"], state["selected_chunks"])
     except Exception:
         logger.warning("Failed to generate answer, returning empty", exc_info=True)
-        return {"summary": "", "claims": [], "conclusion": ""}
+        recorder.record("generate", "Could not write an answer from the passages")
+        return empty | {"activity": recorder.steps}
+
+    recorder.record(
+        "generate",
+        f"Wrote {count(len(result.claims), 'claim')} from {count(len(state['selected_chunks']), 'passage')}",
+    )
 
     return {
         "summary": _presentable(result.summary),
@@ -30,4 +40,5 @@ def generate_claims_node(state: ResearchState, llm: LLMProvider) -> dict:
             for claim in result.claims
         ],
         "conclusion": _presentable(result.conclusion),
+        "activity": recorder.steps,
     }

@@ -2,7 +2,9 @@
 
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
+from app.domain.activity import ActivityStep
 
 Confidence = Literal["high", "medium", "low"]
 
@@ -40,3 +42,6 @@ class Answer(BaseModel):
     conclusion: str
     evidence: dict[str, AnswerEvidence]
     evidence_sufficient: bool
+    # What the agent did to get here. Carried on the answer rather than only
+    # streamed, so the trail survives a page reload and a non-streaming caller.
+    activity: list[ActivityStep] = Field(default_factory=list)

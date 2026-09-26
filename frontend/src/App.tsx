@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { streamQuestion } from "./api/research";
-import type { Answer } from "./types/answer";
+import type { ActivityStep, Answer } from "./types/answer";
+import { ActivityLog } from "./components/ActivityLog";
 import { ClaimText } from "./components/ClaimText";
 import { MathText } from "./components/MathText";
 import { buildCitationNumbers } from "./utils/citations";
@@ -11,6 +12,9 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [stage, setStage] = useState<string | null>(null);
+  // Collected live so the reader sees progress inside a slow stage. The finished
+  // answer carries its own copy, which is what the panel shows afterwards.
+  const [activity, setActivity] = useState<ActivityStep[]>([]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -20,6 +24,7 @@ function App() {
     setError(null);
     setAnswer(null);
     setStage(null);
+    setActivity([]);
 
     let receivedTerminal = false;
 
@@ -27,6 +32,8 @@ function App() {
       for await (const event of streamQuestion(question)) {
         if (event.type === "progress") {
           setStage(event.data.label);
+        } else if (event.type === "activity") {
+          setActivity((steps) => [...steps, event.data]);
         } else if (event.type === "result") {
           receivedTerminal = true;
           if (!event.data.claims?.length) {
@@ -126,16 +133,25 @@ function App() {
         <p style={{ color: "#dc2626", marginTop: 16, fontSize: 14 }}>{error}</p>
       )}
       {loading && stage && (
-        <p
-          style={{
-            textAlign: "center",
-            color: "var(--color-text-muted)",
-            marginTop: 16,
-            fontSize: 14,
-          }}
-        >
-          {stage}…
-        </p>
+        <div style={{ marginTop: 16, textAlign: "center" }}>
+          <p style={{ color: "var(--color-text)", margin: 0, fontSize: 14 }}>{stage}…</p>
+          {activity.length > 0 && (
+            <p
+              style={{
+                color: "var(--color-text-muted)",
+                margin: "4px 0 0",
+                fontSize: 13,
+                // The step list grows fast; a fixed line keeps the layout still.
+                minHeight: 18,
+              }}
+            >
+              {activity[activity.length - 1].label}
+            </p>
+          )}
+        </div>
+      )}
+      {loading && activity.length > 0 && (
+        <ActivityLog steps={activity} defaultOpen={false} />
       )}
 
       {answer && (
@@ -225,6 +241,8 @@ function App() {
           )}
         </div>
       )}
+
+      {answer && <ActivityLog steps={answer.activity} />}
     </div>
   );
 }

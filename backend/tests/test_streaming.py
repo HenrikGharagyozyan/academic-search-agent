@@ -26,7 +26,7 @@ def parse_sse(body: str) -> list[tuple[str, dict]]:
 
 
 @pytest.fixture
-def pipeline(keep_all_chunks_relevant):
+def pipeline(keep_all_chunks_relevant, answer_is_satisfactory):
     """A research service wired to mocks, so the real graph actually runs."""
     search = MagicMock()
     search.search.return_value = [
@@ -38,6 +38,7 @@ def pipeline(keep_all_chunks_relevant):
 
     llm = MagicMock()
     llm.grade_relevance.side_effect = keep_all_chunks_relevant
+    llm.grade_answer_quality.return_value = answer_is_satisfactory
     llm.generate_answer.side_effect = lambda question, evidence: ClaimsResponse(
         summary="Test summary",
         claims=[Claim(text="A claim", evidence_ids=[evidence[0].chunk_id], confidence="high")],
@@ -57,7 +58,9 @@ def test_stream_reports_progress_then_a_result(pipeline):
 
     names = [e["event"] for e in events]
     assert names[-1] == "result"
-    assert names[:-1] == ["progress"] * (len(names) - 1)
+    # Stage events and the finer-grained activity steps interleave; nothing else
+    # reaches the client before the terminal event.
+    assert set(names[:-1]) == {"progress", "activity"}
     assert events[-1]["data"]["summary"] == "Test summary"
     assert events[-1]["data"]["claims"][0]["text"] == "A claim"
 
