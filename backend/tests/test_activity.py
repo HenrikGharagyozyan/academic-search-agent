@@ -152,3 +152,20 @@ def test_retrieval_keeps_chunks_in_search_order_not_completion_order():
     sources = [c.source_url for c in out["chunks"]]
 
     assert sources.index("https://first.com") < sources.index("https://second.com")
+
+
+def test_verify_reports_what_it_threw_away():
+    state = {
+        "selected_chunks": [chunk("real")],
+        "claims": [
+            Claim(text="grounded", evidence_ids=["real", "invented"], confidence="high"),
+            Claim(text="ungrounded", evidence_ids=["invented"], confidence="low"),
+        ],
+    }
+
+    out = verify_evidence_node(state)
+    step = out["activity"][0]
+
+    assert step.kind == "verify"
+    assert "1 claim dropped as ungrounded" in step.detail
+    assert "1 invented citation removed" in step.detail

@@ -36,7 +36,8 @@ def test_grade_relevance_drops_everything_if_none_relevant():
     result = grade_relevance_node(state, llm=mock_llm)
 
     # An empty answer beats one built on irrelevant chunks.
-    assert result == {"selected_chunks": []}
+    assert result["selected_chunks"] == []
+    assert [step.kind for step in result["activity"]] == ["grade_relevance"]
 
 
 def test_grade_relevance_keeps_all_when_grading_fails():
@@ -47,8 +48,11 @@ def test_grade_relevance_keeps_all_when_grading_fails():
     state = {"question": "q?", "selected_chunks": chunks}
     result = grade_relevance_node(state, llm=mock_llm)
 
-    # A failing judge is no reason to lose context: the state stays untouched.
-    assert result == {}
+    # A failing judge is no reason to lose context: the chunks are left alone.
+    assert "selected_chunks" not in result
+    # The reader still gets told the judge was skipped rather than silence.
+    assert result["activity"][0].kind == "grade_relevance"
+    assert "keeping all" in result["activity"][0].label
 
 
 def test_grade_answer_marks_insufficient_when_unsatisfactory():
@@ -63,7 +67,8 @@ def test_grade_answer_marks_insufficient_when_unsatisfactory():
     }
     result = grade_answer_node(state, llm=mock_llm)
 
-    assert result == {"evidence_sufficient": False}
+    assert result["evidence_sufficient"] is False
+    assert result["activity"][0].detail == "off topic"
 
 
 def test_grade_answer_returns_empty_when_satisfactory():
@@ -78,4 +83,6 @@ def test_grade_answer_returns_empty_when_satisfactory():
     }
     result = grade_answer_node(state, llm=mock_llm)
 
-    assert result == {}
+    # Nothing about the verdict changes; only the trail grows.
+    assert "evidence_sufficient" not in result
+    assert result["activity"][0].label.endswith("satisfactory")
