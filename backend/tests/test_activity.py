@@ -98,3 +98,57 @@ def test_search_records_nothing_extra_when_the_provider_fails():
 
     with pytest.raises(UpstreamServiceError):
         search_node({"question": "q?", "search_query": "q"}, provider)
+
+
+def test_retrieval_reports_one_step_per_page_read():
+    provider = MagicMock()
+    provider.scrape.side_effect = lambda url: page(url)
+    state = {
+        "search_results": [
+            result("https://a.com"), result("https://b.com"), result("https://c.com")
+        ]
+    }
+
+    out = retrieve_and_chunk_node(state, provider)
+    read = [s for s in out["activity"] if s.kind == "scrape_ok"]
+
+    assert len(read) == 3
+    assert {s.url for s in read} == {"https://a.com", "https://b.com", "https://c.com"}
+    # Each one says how much it got, which is the point of a per-page line.
+    assert all(s.detail and "passage" in s.detail for s in read)
+
+
+def test_retrieval_reports_a_page_it_could_not_read():
+    provider = MagicMock()
+
+    def scrape(url):
+        if url == "https://broken.com":
+            raise RuntimeError("Website Not Supported")
+        return page(url)
+
+    provider.scrape.side_effect = scrape
+    state = {"search_results": [result("https://broken.com"), result("https://ok.com")]}
+
+    out = retrieve_and_chunk_node(state, provider)
+    kinds = {s.kind: s for s in out["activity"] if s.kind in {"scrape_ok", "scrape_failed"}}
+
+    assert kinds["scrape_failed"].url == "https://broken.com"
+    assert kinds["scrape_ok"].url == "https://ok.com"
+    # A page that cannot be read is reported, not silently missing.
+    assert "Could not read" in kinds["scrape_failed"].label
+
+
+def test_retrieval_keeps_chunks_in_search_order_not_completion_order():
+    """Scrapes finish in whatever order the network decides, but the vector
+    store falls back to the first top_k chunks when embedding fails — so the
+    order of `chunks` decides what survives and must stay deterministic."""
+    provider = MagicMock()
+    provider.scrape.side_effect = lambda url: page(url, f"Body of {url} with enough text here.")
+    state = {
+        "search_results": [result("https://first.com"), result("https://second.com")]
+    }
+
+    out = retrieve_and_chunk_node(state, provider)
+    sources = [c.source_url for c in out["chunks"]]
+
+    assert sources.index("https://first.com") < sources.index("https://second.com")
