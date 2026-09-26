@@ -14,6 +14,30 @@ export interface AnswerEvidence {
   end_line: number;
 }
 
+export type ActivityKind =
+  | "search"
+  | "source_found"
+  | "scrape_ok"
+  | "scrape_failed"
+  | "collect"
+  | "select"
+  | "grade_relevance"
+  | "generate"
+  | "verify"
+  | "grade_answer"
+  | "refine";
+
+export interface ActivityStep {
+  kind: ActivityKind;
+  /** Written by the backend, shown as-is. */
+  label: string;
+  url?: string | null;
+  title?: string | null;
+  detail?: string | null;
+  /** Which pass of the refine loop this step belongs to. */
+  attempt: number;
+}
+
 export interface Answer {
   question: string;
   summary: string;
@@ -21,4 +45,5 @@ export interface Answer {
   conclusion: string;
   evidence: Record<string, AnswerEvidence>;
   evidence_sufficient: boolean;
+  activity: ActivityStep[];
 }
