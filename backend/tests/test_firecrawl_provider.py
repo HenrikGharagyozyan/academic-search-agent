@@ -1,9 +1,9 @@
 from unittest.mock import MagicMock, patch
 
-from app.providers.firecrawl_provider import FirecrawlProvider
+from app.infrastructure.search.firecrawl import FirecrawlProvider
 
 
-@patch("app.providers.firecrawl_provider.FirecrawlApp")
+@patch("app.infrastructure.search.firecrawl.FirecrawlApp")
 def test_scrape_parses_page(mock_app_cls, monkeypatch):
     monkeypatch.setenv("FIRECRAWL_API_KEY", "test-key")
     monkeypatch.setenv("GEMINI_API_KEY", "test-key")
@@ -25,7 +25,7 @@ def test_scrape_parses_page(mock_app_cls, monkeypatch):
     assert page.url == "https://example.com"
 
 
-@patch("app.providers.firecrawl_provider.FirecrawlApp")
+@patch("app.infrastructure.search.firecrawl.FirecrawlApp")
 def test_scrape_uses_cache_on_second_call(mock_app_cls):
     provider = FirecrawlProvider()
 

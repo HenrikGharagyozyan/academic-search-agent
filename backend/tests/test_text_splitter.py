@@ -1,4 +1,4 @@
-from app.retrieval.text_splitter import split_into_lines
+from app.domain.text.splitter import split_into_lines
 
 
 def test_split_into_lines_skips_empty_lines():

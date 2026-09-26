@@ -1,4 +1,4 @@
-from app.providers.firecrawl_provider import FirecrawlProvider
+from app.infrastructure.search.firecrawl import FirecrawlProvider
 from app.core.config import get_settings
 from firecrawl import FirecrawlApp
 

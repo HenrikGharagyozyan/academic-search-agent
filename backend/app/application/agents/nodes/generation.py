@@ -1,0 +1,33 @@
+import logging
+
+from app.application.agents.state import ResearchState
+from app.domain.text.cleanup import strip_evidence_ids
+from app.domain.text.latex import restore_latex
+from app.ports.llm import LLMProvider
+
+logger = logging.getLogger(__name__)
+
+
+def _presentable(text: str) -> str:
+    """Turns raw model text into what the reader should actually see."""
+    return strip_evidence_ids(restore_latex(text))
+
+
+def generate_claims_node(state: ResearchState, llm: LLMProvider) -> dict:
+    if not state["selected_chunks"]:
+        return {"summary": "", "claims": [], "conclusion": ""}
+
+    try:
+        result = llm.generate_answer(state["question"], state["selected_chunks"])
+    except Exception:
+        logger.warning("Failed to generate answer, returning empty", exc_info=True)
+        return {"summary": "", "claims": [], "conclusion": ""}
+
+    return {
+        "summary": _presentable(result.summary),
+        "claims": [
+            claim.model_copy(update={"text": _presentable(claim.text)})
+            for claim in result.claims
+        ],
+        "conclusion": _presentable(result.conclusion),
+    }

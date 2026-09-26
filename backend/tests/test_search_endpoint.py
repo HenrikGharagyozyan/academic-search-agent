@@ -1,12 +1,3 @@
-from unittest.mock import MagicMock, patch
-
-from fastapi.testclient import TestClient
-
-from app.main import app
-
-client = TestClient(app)
-
-
 def test_search_endpoint_returns_results(client, mock_search_service):
     mock_search_service.search.return_value = [
         {"title": "Test Paper", "url": "https://arxiv.org/abs/1", "snippet": "..."}

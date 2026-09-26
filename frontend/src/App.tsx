@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { askQuestion } from "./api/research";
+import { streamQuestion } from "./api/research";
 import type { Answer } from "./types/answer";
 import { ClaimText } from "./components/ClaimText";
+import { MathText } from "./components/MathText";
 import { buildCitationNumbers } from "./utils/citations";
 
 function App() {
@@ -9,6 +10,7 @@ function App() {
   const [answer, setAnswer] = useState<Answer | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [stage, setStage] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -17,13 +19,34 @@ function App() {
     setLoading(true);
     setError(null);
     setAnswer(null);
+    setStage(null);
+
+    let receivedTerminal = false;
+
     try {
-      const result = await askQuestion(question);
-      setAnswer(result);
+      for await (const event of streamQuestion(question)) {
+        if (event.type === "progress") {
+          setStage(event.data.label);
+        } else if (event.type === "result") {
+          receivedTerminal = true;
+          if (!event.data.claims?.length) {
+            setError("It was not possible to find reliable enough sources for an answer. Try to reformulate the question.");
+          } else {
+            setAnswer(event.data);
+          }
+        } else if (event.type === "error") {
+          receivedTerminal = true;
+          setError(event.data.detail);
+        }
+      }
+      if (!receivedTerminal) {
+        setError("The connection was interrupted before an answer arrived. Please try again.");
+      }
     } catch {
       setError("Something went wrong. Please try again.");
     } finally {
       setLoading(false);
+      setStage(null);
     }
   };
 
@@ -102,6 +125,18 @@ function App() {
       {error && (
         <p style={{ color: "#dc2626", marginTop: 16, fontSize: 14 }}>{error}</p>
       )}
+      {loading && stage && (
+        <p
+          style={{
+            textAlign: "center",
+            color: "var(--color-text-muted)",
+            marginTop: 16,
+            fontSize: 14,
+          }}
+        >
+          {stage}…
+        </p>
+      )}
 
       {answer && (
         <div
@@ -148,7 +183,7 @@ function App() {
                     lineHeight: 1.6,
                   }}
                 >
-                  {answer.summary}
+                  <MathText text={answer.summary} />
                 </p>
               )}
 
@@ -182,7 +217,7 @@ function App() {
                     Conclusion
                   </div>
                   <p style={{ fontSize: 16, lineHeight: 1.7, margin: 0 }}>
-                    {answer.conclusion}
+                    <MathText text={answer.conclusion} />
                   </p>
                 </div>
               )}
