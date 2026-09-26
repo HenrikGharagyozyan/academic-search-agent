@@ -26,7 +26,7 @@ def parse_sse(body: str) -> list[tuple[str, dict]]:
 
 
 @pytest.fixture
-def pipeline(keep_all_chunks_relevant):
+def pipeline(keep_all_chunks_relevant, answer_is_satisfactory):
     """A research service wired to mocks, so the real graph actually runs."""
     search = MagicMock()
     search.search.return_value = [
@@ -38,6 +38,7 @@ def pipeline(keep_all_chunks_relevant):
 
     llm = MagicMock()
     llm.grade_relevance.side_effect = keep_all_chunks_relevant
+    llm.grade_answer_quality.return_value = answer_is_satisfactory
     llm.generate_answer.side_effect = lambda question, evidence: ClaimsResponse(
         summary="Test summary",
         claims=[Claim(text="A claim", evidence_ids=[evidence[0].chunk_id], confidence="high")],

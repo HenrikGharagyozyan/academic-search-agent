@@ -6,7 +6,7 @@ from app.domain.answers import Claim, ClaimsResponse
 from app.application.services.research import ResearchService
 
 
-def test_answer_builds_evidence_from_used_claims(keep_all_chunks_relevant):
+def test_answer_builds_evidence_from_used_claims(keep_all_chunks_relevant, answer_is_satisfactory):
     mock_search = MagicMock()
     mock_search.search.return_value = [
         SearchResult(title="Paper", url="https://example.com", snippet="...")
@@ -19,6 +19,7 @@ def test_answer_builds_evidence_from_used_claims(keep_all_chunks_relevant):
 
     mock_llm = MagicMock()
     mock_llm.grade_relevance.side_effect = keep_all_chunks_relevant
+    mock_llm.grade_answer_quality.return_value = answer_is_satisfactory
 
     def fake_generate_answer(question, evidence_chunks):
         first_id = evidence_chunks[0].chunk_id
@@ -52,7 +53,7 @@ def test_answer_builds_evidence_from_used_claims(keep_all_chunks_relevant):
     assert result.evidence_sufficient is True
 
 
-def test_answer_drops_claims_with_only_unknown_evidence_ids(keep_all_chunks_relevant):
+def test_answer_drops_claims_with_only_unknown_evidence_ids(keep_all_chunks_relevant, answer_is_satisfactory):
     mock_search = MagicMock()
     mock_search.search.return_value = [
         SearchResult(title="Paper", url="https://example.com", snippet="...")
@@ -63,6 +64,7 @@ def test_answer_drops_claims_with_only_unknown_evidence_ids(keep_all_chunks_rele
 
     mock_llm = MagicMock()
     mock_llm.grade_relevance.side_effect = keep_all_chunks_relevant
+    mock_llm.grade_answer_quality.return_value = answer_is_satisfactory
     mock_llm.generate_answer.return_value = ClaimsResponse(
         summary="Test summary",
         claims=[
@@ -86,7 +88,7 @@ def test_answer_drops_claims_with_only_unknown_evidence_ids(keep_all_chunks_rele
     # insufficient evidence triggers the refine loop until MAX_RETRIES is hit
     assert mock_llm.generate_answer.call_count == MAX_RETRIES + 1
 
-def test_answer_skips_failed_scrape_and_continues(keep_all_chunks_relevant):
+def test_answer_skips_failed_scrape_and_continues(keep_all_chunks_relevant, answer_is_satisfactory):
     mock_search = MagicMock()
     mock_search.search.return_value = [
         SearchResult(title="Broken", url="https://broken.com", snippet="..."),
@@ -104,6 +106,7 @@ def test_answer_skips_failed_scrape_and_continues(keep_all_chunks_relevant):
 
     mock_llm = MagicMock()
     mock_llm.grade_relevance.side_effect = keep_all_chunks_relevant
+    mock_llm.grade_answer_quality.return_value = answer_is_satisfactory
 
     def fake_generate_answer(question, evidence_chunks):
         first_id = evidence_chunks[0].chunk_id
