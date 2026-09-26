@@ -38,6 +38,7 @@ class ResearchService:
             "conclusion": "",
             "retry_count": 0,
             "evidence_sufficient": False,
+            "activity": [],
         }
 
     def answer(self, question: str) -> Answer:
