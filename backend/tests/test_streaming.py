@@ -58,7 +58,9 @@ def test_stream_reports_progress_then_a_result(pipeline):
 
     names = [e["event"] for e in events]
     assert names[-1] == "result"
-    assert names[:-1] == ["progress"] * (len(names) - 1)
+    # Stage events and the finer-grained activity steps interleave; nothing else
+    # reaches the client before the terminal event.
+    assert set(names[:-1]) == {"progress", "activity"}
     assert events[-1]["data"]["summary"] == "Test summary"
     assert events[-1]["data"]["claims"][0]["text"] == "A claim"
 

@@ -169,3 +169,105 @@ def test_verify_reports_what_it_threw_away():
     assert step.kind == "verify"
     assert "1 claim dropped as ungrounded" in step.detail
     assert "1 invented citation removed" in step.detail
+
+
+# --- the trail on a finished answer ---------------------------------------
+
+
+@pytest.fixture
+def pipeline(keep_all_chunks_relevant, answer_is_satisfactory):
+    search = MagicMock()
+    search.search.return_value = [result("https://arxiv.org/abs/1")]
+    search.scrape.side_effect = lambda url: page(url)
+
+    llm = MagicMock()
+    llm.grade_relevance.side_effect = keep_all_chunks_relevant
+    llm.grade_answer_quality.return_value = answer_is_satisfactory
+    llm.generate_answer.side_effect = lambda q, evidence: ClaimsResponse(
+        summary="S",
+        claims=[Claim(text="C", evidence_ids=[evidence[0].chunk_id], confidence="high")],
+        conclusion="K",
+    )
+
+    store = MagicMock()
+    store.select_relevant_chunks.side_effect = lambda q, chunks, top_k=15: chunks
+
+    return ResearchService(search_provider=search, llm=llm, vector_store=store), search, llm
+
+
+def test_answer_carries_the_trail(pipeline):
+    service, _, _ = pipeline
+
+    answer = service.answer("Does gradient descent converge?")
+    kinds = [s.kind for s in answer.activity]
+
+    # The whole run is on the answer, so the panel works after a reload and for
+    # a caller that never streamed.
+    for expected in ("search", "source_found", "scrape_ok", "select",
+                     "grade_relevance", "generate", "verify", "grade_answer"):
+        assert expected in kinds, f"{expected} missing from {kinds}"
+
+
+def test_trail_survives_a_refine_pass(pipeline, keep_all_chunks_relevant):
+    """`activity` is the first field in ResearchState with a reducer. Without
+    one, each node's list would replace the previous node's instead of adding
+    to it, and a second search would erase the record of the first."""
+    service, _, llm = pipeline
+    llm.refine_query.return_value = "a better query"
+
+    calls = {"n": 0}
+
+    def generate(question, evidence):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            return ClaimsResponse(
+                summary="", claims=[Claim(text="x", evidence_ids=["nope"], confidence="low")],
+                conclusion="",
+            )
+        return ClaimsResponse(
+            summary="S",
+            claims=[Claim(text="C", evidence_ids=[evidence[0].chunk_id], confidence="high")],
+            conclusion="K",
+        )
+
+    llm.generate_answer.side_effect = generate
+
+    answer = service.answer("q?")
+    attempts = {s.attempt for s in answer.activity}
+
+    assert attempts == {0, 1}, "both passes must be on the trail"
+    assert [s.kind for s in answer.activity].count("search") == 2
+    assert any(s.kind == "refine" for s in answer.activity)
+
+
+def test_stream_emits_activity_before_the_result(pipeline):
+    service, _, _ = pipeline
+
+    events = list(service.stream_answer("q?"))
+    activity = [e for e in events if e["event"] == "activity"]
+
+    assert activity, "no activity reached the stream"
+    assert events[-1]["event"] == "result"
+    # Live steps are the same shape as the ones stored on the answer.
+    assert {"kind", "label", "attempt"} <= set(activity[0]["data"])
+
+
+def test_per_page_steps_arrive_before_the_node_finishes(pipeline):
+    """The reason for streaming these at all: scraping is one node that can run
+    for most of a minute, so its per-page steps must reach the client before the
+    node's own stage event does."""
+    service, _, _ = pipeline
+
+    events = list(service.stream_answer("q?"))
+    order = [
+        (e["event"], e["data"].get("kind") or e["data"].get("stage"))
+        for e in events
+        if e["event"] in {"activity", "progress"}
+    ]
+
+    scrape_step = next(i for i, (ev, k) in enumerate(order) if k == "scrape_ok")
+    retrieval_stage = next(
+        i for i, (ev, k) in enumerate(order) if ev == "progress" and k == "retrieve_and_chunk"
+    )
+
+    assert scrape_step < retrieval_stage

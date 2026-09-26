@@ -8,6 +8,7 @@ from app.core.exceptions import ResearchServiceError, UpstreamServiceError
 from app.ports.llm import LLMProvider
 from app.ports.search import SearchProvider
 from app.ports.vector_store import VectorStore
+from app.domain.activity import ActivityStep
 from app.domain.answers import Answer, AnswerEvidence
 from app.domain.documents import Chunk
 
@@ -59,21 +60,25 @@ class ResearchService:
         """Yields SSE-ready events ({"event": ..., "data": ...}): one "progress"
         event per completed graph node, then a final "result" event with the
         full Answer, or an "error" event if the pipeline fails."""
-        # "updates" drives the progress events; "values" carries the state the
-        # answer is built from. Reconstructing that state here by hand would
+        # "updates" drives the stage events, "values" carries the state the answer
+        # is built from, and "custom" carries the activity steps a node records
+        # while it is still running. Reconstructing the state here by hand would
         # duplicate the graph's own reducers, and the copy would diverge the
-        # moment a field in ResearchState grew one — leaving /answer and
-        # /answer/stream returning different answers to the same question.
+        # moment a field in ResearchState grew one — as `activity` now has.
         state: dict[str, Any] = self._initial_state(question)
 
         try:
             for mode, payload in self._graph.stream(
                 state,
                 config={"recursion_limit": RECURSION_LIMIT},
-                stream_mode=["updates", "values"],
+                stream_mode=["updates", "values", "custom"],
             ):
                 if mode == "values":
                     state = payload
+                    continue
+
+                if mode == "custom":
+                    yield {"event": "activity", "data": payload}
                     continue
 
                 for node_name in payload:
@@ -99,6 +104,7 @@ class ResearchService:
     def _build_answer(self, question: str, result: dict[str, Any]) -> Answer:
         chunks: list[Chunk] = result["chunks"]
         claims = result["claims"]
+        activity: list[ActivityStep] = result.get("activity", [])
 
         chunks_by_id = {c.chunk_id: c for c in chunks}
         used_ids = {eid for claim in claims for eid in claim.evidence_ids}
@@ -124,4 +130,5 @@ class ResearchService:
             conclusion=result["conclusion"],
             evidence=evidence,
             evidence_sufficient=result.get("evidence_sufficient", False),
+            activity=activity,
         )
