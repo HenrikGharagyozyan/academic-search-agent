@@ -67,3 +67,34 @@ def test_recorder_stamps_the_refine_pass_on_every_step():
 )
 def test_short_host_drops_the_noise(url, expected):
     assert short_host(url) == expected
+
+
+# --- per-source reporting --------------------------------------------------
+
+
+def test_search_records_the_query_and_every_source_it_found():
+    provider = MagicMock()
+    provider.search.return_value = [
+        result("https://arxiv.org/abs/1"),
+        result("https://www.nature.com/articles/2"),
+    ]
+
+    out = search_node({"question": "q?", "search_query": "convex convergence"}, provider)
+    steps = out["activity"]
+
+    assert steps[0].kind == "search"
+    assert "convex convergence" in steps[0].label
+    assert steps[0].detail is None, "the label already carries the query"
+    assert [s.kind for s in steps[1:]] == ["source_found", "source_found"]
+    assert [s.url for s in steps[1:]] == [
+        "https://arxiv.org/abs/1",
+        "https://www.nature.com/articles/2",
+    ]
+
+
+def test_search_records_nothing_extra_when_the_provider_fails():
+    provider = MagicMock()
+    provider.search.side_effect = RuntimeError("boom")
+
+    with pytest.raises(UpstreamServiceError):
+        search_node({"question": "q?", "search_query": "q"}, provider)
