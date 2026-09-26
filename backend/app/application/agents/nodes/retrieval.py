@@ -7,6 +7,7 @@ from app.application.agents.state import ResearchState
 from app.domain.documents import Chunk
 from app.domain.search import SearchResult
 from app.domain.text.chunker import chunk_lines, deduplicate_chunks
+from app.domain.text.plain import to_label
 from app.domain.text.splitter import split_into_lines
 from app.ports.search import SearchProvider
 
@@ -62,7 +63,7 @@ def retrieve_and_chunk_node(state: ResearchState, search_provider: SearchProvide
                     "scrape_failed",
                     f"Could not read {short_host(result.url)}",
                     url=result.url,
-                    title=result.title or short_host(result.url),
+                    title=to_label(result.title) or short_host(result.url),
                 )
                 continue
 
@@ -71,7 +72,7 @@ def retrieve_and_chunk_node(state: ResearchState, search_provider: SearchProvide
                 "scrape_ok",
                 f"Read {short_host(result.url)}",
                 url=result.url,
-                title=result.title or short_host(result.url),
+                title=to_label(result.title) or short_host(result.url),
                 detail=count(len(chunks), "passage"),
             )
 
