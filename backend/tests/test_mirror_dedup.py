@@ -13,7 +13,7 @@ import pytest
 
 from app.application.agents.nodes import retrieve_and_chunk_node, select_relevant_chunks_node
 from app.domain.documents import Chunk
-from app.domain.selection import cap_per_source, source_count
+from app.domain.selection import source_count, spread_across_sources
 from app.domain.text.similarity import MIRROR_THRESHOLD, containment, find_mirrors, shingles
 from app.domain.search import ScrapedPage, SearchResult
 
@@ -150,73 +150,99 @@ def test_distinct_pages_are_all_kept():
     assert not [s for s in out["activity"] if s.kind == "mirror_dropped"]
 
 
-# --- the per-source quota --------------------------------------------------
+# --- spreading the context across sources ----------------------------------
 
 
-def test_one_source_cannot_take_every_slot():
-    ranked = [chunk("https://dominant.com", i) for i in range(20)]
-    ranked += [chunk("https://other.com", i) for i in range(20)]
+def test_every_source_gets_a_turn_before_any_page_repeats():
+    ranked = [chunk("https://long.com", i) for i in range(100)]
+    ranked += [chunk("https://short.com", i) for i in range(2)]
 
-    taken = cap_per_source(ranked, limit=10, max_per_source=4)
+    taken = spread_across_sources(ranked, limit=10)
+
+    assert source_count(taken) == 2
+    assert [c.source_url for c in taken[:2]] == ["https://long.com", "https://short.com"]
+
+
+def test_the_shape_that_defeated_a_per_source_quota():
+    """The live run this replaced: one page held 114 of 133 passages, so the top
+    of the ranking was entirely its own and a 10-of-25 cap never came into play.
+    All 25 slots went to one source."""
+    ranked = [chunk("https://pubs.aip.org", i) for i in range(114)]
+    ranked += [chunk("https://link.aps.org", i) for i in range(13)]
+    ranked += [chunk("https://opg.optica.org", i) for i in range(10)]
+    ranked += [chunk("https://hal.science", i) for i in range(1)]
+
+    taken = spread_across_sources(ranked, limit=25)
+
+    assert len(taken) == 25
+    assert source_count(taken) == 4, "every page that was read must be represented"
+    # And no page holds most of the context any more.
+    per_source = {}
+    for c in taken:
+        per_source[c.source_url] = per_source.get(c.source_url, 0) + 1
+    assert max(per_source.values()) <= 10
+
+
+def test_the_best_ranked_source_still_leads():
+    ranked = [chunk("https://best.com", 0), chunk("https://second.com", 0)]
+
+    taken = spread_across_sources(ranked, limit=2)
+
+    assert taken[0].source_url == "https://best.com"
+
+
+def test_rank_order_is_preserved_within_a_source():
+    ranked = [chunk("https://a.com", i) for i in range(3)]
+
+    taken = spread_across_sources(ranked, limit=3)
+
+    assert [c.chunk_id for c in taken] == ["https://a.com#0", "https://a.com#1", "https://a.com#2"]
+
+
+def test_a_long_page_fills_the_slots_the_others_cannot():
+    """Breadth first, then depth: running short would trade one bias for a worse
+    one, less evidence overall."""
+    ranked = [chunk("https://long.com", i) for i in range(50)]
+    ranked += [chunk("https://tiny.com", 0)]
+
+    taken = spread_across_sources(ranked, limit=10)
 
     assert len(taken) == 10
-    assert source_count(taken) == 2
+    assert sum(1 for c in taken if c.source_url == "https://long.com") == 9
 
 
-def test_the_quota_does_not_leave_the_context_short():
-    """Running short would trade one bias for a worse one: less evidence."""
+def test_a_single_source_still_fills_the_budget():
     ranked = [chunk("https://only.com", i) for i in range(20)]
 
-    taken = cap_per_source(ranked, limit=10, max_per_source=4)
-
-    assert len(taken) == 10, "a single-source result set must still fill the budget"
+    assert len(spread_across_sources(ranked, limit=10)) == 10
 
 
-def test_rank_order_is_preserved():
-    ranked = [chunk("https://a.com", 0), chunk("https://b.com", 0), chunk("https://a.com", 1)]
-
-    taken = cap_per_source(ranked, limit=3, max_per_source=2)
-
-    assert [c.chunk_id for c in taken] == [c.chunk_id for c in ranked]
-
-
-def test_fewer_chunks_than_the_limit_are_all_returned():
+def test_fewer_passages_than_the_limit_are_all_returned():
     ranked = [chunk("https://a.com", 0), chunk("https://b.com", 0)]
 
-    assert cap_per_source(ranked, limit=10, max_per_source=5) == list(ranked)
+    assert spread_across_sources(ranked, limit=10) == list(ranked)
 
 
-@pytest.mark.parametrize(("limit", "quota"), [(0, 5), (5, 0), (0, 0)])
-def test_a_zero_budget_selects_nothing(limit, quota):
-    assert cap_per_source([chunk("https://a.com", 0)], limit, quota) == []
+@pytest.mark.parametrize("limit", [0, -1])
+def test_a_zero_budget_selects_nothing(limit):
+    assert spread_across_sources([chunk("https://a.com", 0)], limit) == []
 
 
-def test_the_selection_node_oversamples_then_applies_the_quota():
-    from app.application.agents.constants import (
-        CHUNK_OVERSAMPLE,
-        MAX_SOURCE_SHARE,
-        TOP_K_CHUNKS,
-    )
+def test_the_selection_node_ranks_everything_then_spreads_it():
+    from app.application.agents.constants import TOP_K_CHUNKS
 
-    chunks = [chunk("https://dominant.com", i) for i in range(60)]
-    chunks += [chunk("https://other.com", i) for i in range(60)]
+    chunks = [chunk("https://dominant.com", i) for i in range(100)]
+    chunks += [chunk("https://other.com", i) for i in range(4)]
     store = MagicMock()
     store.select_relevant_chunks.side_effect = lambda q, cs, top_k: cs[:top_k]
 
     out = select_relevant_chunks_node({"question": "q?", "chunks": chunks}, store)
 
-    # It asked for more than it needs, because the quota discards some.
-    assert store.select_relevant_chunks.call_args.kwargs["top_k"] == (
-        TOP_K_CHUNKS * CHUNK_OVERSAMPLE
-    )
+    # The whole set is ranked: truncating first is what hid the small sources.
+    assert store.select_relevant_chunks.call_args.kwargs["top_k"] == len(chunks)
     assert len(out["selected_chunks"]) == TOP_K_CHUNKS
-    per_source = {}
-    for c in out["selected_chunks"]:
-        per_source[c.source_url] = per_source.get(c.source_url, 0) + 1
-    # Without the quota the dominant source would hold all 25 slots.
-    assert max(per_source.values()) < TOP_K_CHUNKS
     assert source_count(out["selected_chunks"]) == 2
-    assert MAX_SOURCE_SHARE < 1.0
+    assert "each source gets a turn" in out["activity"][0].detail
 
 
 # --- the case content similarity alone missed ------------------------------

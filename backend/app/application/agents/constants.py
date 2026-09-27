@@ -35,15 +35,6 @@ MAX_SOURCES = 8
 MAX_RETRIES = 1
 TOP_K_CHUNKS = 25
 
-# How many ranked passages to ask the store for before the per-source quota is
-# applied, as a multiple of TOP_K_CHUNKS. The quota throws some away, so asking
-# for exactly TOP_K would leave the context short.
-CHUNK_OVERSAMPLE = 3
-
-# The largest share of the context one page may occupy. Without it a paper
-# mirrored across four domains takes every slot and the answer covers one method.
-MAX_SOURCE_SHARE = 0.4
-
 # For a recency question, how far back still counts as current work. A year is
 # the usual web default and too tight for a literature review.
 RECENCY_WINDOW_YEARS = 3
