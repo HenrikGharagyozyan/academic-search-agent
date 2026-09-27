@@ -82,7 +82,10 @@ def retrieve_and_chunk_node(state: ResearchState, search_provider: SearchProvide
     # results, and its passages would otherwise outvote the rest of the field.
     read = sorted(chunks_by_source)
     texts = ["\n".join(c.text for c in chunks_by_source[i]) for i in read]
-    mirrors = find_mirrors(texts)
+    # to_label first: arXiv reports its whole metadata table as the title, and
+    # two mirrors only match on the part of it that is actually the title.
+    titles = [to_label(search_results[i].title) for i in read]
+    mirrors = find_mirrors(texts, titles=titles)
 
     for position, canonical in mirrors.items():
         mirrored, original = read[position], read[canonical]

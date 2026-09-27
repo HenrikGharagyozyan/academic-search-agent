@@ -6,11 +6,23 @@ aggregator stubs. Deduplicating by URL cannot see that, and comparing chunk
 text exactly cannot either, because each site wraps the same words in its own
 furniture.
 
-Containment rather than Jaccard is the measure that works here. A mirror is
-often not the same size as its original — an aggregator carries the abstract,
-the publisher carries the whole article — and Jaccard punishes that difference
-exactly when the smaller document is entirely inside the larger one. Overlap
-against the smaller of the two is what "this is the same work" actually means.
+Two signals, in this order.
+
+The title is the document's identity, and academic mirrors reproduce it
+verbatim: the same paper on arXiv and at the publisher carries the same title,
+word for word. Where titles are available and specific enough, that settles it.
+
+Content containment is the fallback, for pages whose titles were unusable.
+Containment rather than Jaccard, because a mirror is often not the same size as
+its original — an aggregator carries the abstract, the publisher the whole
+article — and Jaccard punishes that difference exactly when the smaller document
+is entirely inside the larger one.
+
+Content alone is not enough, which a live run demonstrated: an arXiv abstract
+page against the publisher's full article scored 0.41 and slipped through. The
+arXiv page is mostly furniture — subject tags, submission history, bibliographic
+tool links — so the abstract is a small part of it, and containment divides by
+the smaller document including all of that. Their titles were identical.
 """
 
 import re
@@ -27,6 +39,14 @@ SHINGLE_SIZE = 5
 # shared vocabulary produces almost no shared five-word runs. The threshold sits
 # in the middle of that gap and is nowhere near either side.
 MIRROR_THRESHOLD = 0.55
+
+# How much of two titles must agree. Titles of distinct papers differ wildly, so this
+# is deliberately strict — it is an identity check, not a similarity one.
+TITLE_THRESHOLD = 0.85
+
+# Below this a title is too generic to identify a document: "Adaptive Optics"
+# would merge a textbook page with every paper that mentions it.
+MIN_TITLE_WORDS = 4
 
 _WORD = re.compile(r"[^\W_]+", re.UNICODE)
 
@@ -49,8 +69,22 @@ def containment(a: frozenset[str], b: frozenset[str]) -> float:
     return len(a & b) / min(len(a), len(b))
 
 
+def title_words(title: str) -> frozenset[str]:
+    """The identifying words of a title, or empty when it identifies nothing."""
+    words = frozenset(_WORD.findall(title.lower()))
+    return words if len(words) >= MIN_TITLE_WORDS else frozenset()
+
+
+def same_title(a: frozenset[str], b: frozenset[str]) -> bool:
+    if not a or not b:
+        return False
+    return len(a & b) / len(a | b) >= TITLE_THRESHOLD
+
+
 def find_mirrors(
-    texts: Sequence[str], threshold: float = MIRROR_THRESHOLD
+    texts: Sequence[str],
+    titles: Sequence[str] | None = None,
+    threshold: float = MIRROR_THRESHOLD,
 ) -> dict[int, int]:
     """Maps each mirrored document to the index of the one kept in its place.
 
@@ -60,6 +94,7 @@ def find_mirrors(
     method and the figures the stub omits.
     """
     fingerprints = [shingles(text) for text in texts]
+    names = [title_words(t) for t in (titles or [""] * len(texts))]
     # Longest first, ties broken by original order so the result is stable.
     by_size = sorted(range(len(texts)), key=lambda i: (-len(texts[i]), i))
 
@@ -71,7 +106,8 @@ def find_mirrors(
             (
                 k
                 for k in kept
-                if containment(fingerprints[index], fingerprints[k]) >= threshold
+                if same_title(names[index], names[k])
+                or containment(fingerprints[index], fingerprints[k]) >= threshold
             ),
             None,
         )

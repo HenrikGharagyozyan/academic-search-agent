@@ -217,3 +217,90 @@ def test_the_selection_node_oversamples_then_applies_the_quota():
     assert max(per_source.values()) < TOP_K_CHUNKS
     assert source_count(out["selected_chunks"]) == 2
     assert MAX_SOURCE_SHARE < 1.0
+
+
+# --- the case content similarity alone missed ------------------------------
+
+TITLE = "Wavefront shaping in multimode fibers by transmission matrix engineering"
+
+# What arXiv's abstract page actually looks like once scraped: the abstract is a
+# small part of it, the rest is subject tags, submission history and links to
+# bibliographic tools.
+ARXIV_PAGE = (
+    "arXiv Subjects Optics physics.optics Quantum Physics quant-ph Cite as arXiv 1910.02798 "
+    "Submission history From Sebastien Popoff view email Bibliographic Tools Bibliographic "
+    "Explorer Toggle Connected Papers Toggle Litmaps Toggle scite Smart Citations Code Data "
+    "Media Demos Related Papers About arXivLabs Which authors of this paper are endorsers "
+    "Disable MathJax What is MathJax Browse context new recent "
+) * 8 + ABSTRACT
+
+# The publisher's copy: the same abstract plus the whole paper. A real article
+# dwarfs the preprint listing page, which is what makes the containment fail —
+# the shared abstract is a small fraction of the arXiv page's own text.
+FULL_ARTICLE = ABSTRACT + " " + (
+    "Multimode fibers support many propagation modes and the transmission matrix relates "
+    "input and output fields. We measured the matrix using off-axis holography and applied "
+    "macro-bending perturbations at nine positions along the fiber, recording the resulting "
+    "intensity patterns for each configuration of the mechanical actuators. "
+) * 60
+
+
+def test_content_alone_does_not_catch_an_arxiv_page_against_the_article():
+    """Documents the limit that made the title signal necessary. A live run on
+    the reported question kept both the arXiv page and the publisher's copy of
+    the same paper, because this score sits below the threshold."""
+    score = containment(shingles(ARXIV_PAGE), shingles(FULL_ARTICLE))
+
+    assert score < MIRROR_THRESHOLD, (
+        f"if content alone now catches this, the furniture assumption changed ({score:.2f})"
+    )
+    assert find_mirrors([ARXIV_PAGE, FULL_ARTICLE]) == {}, "content alone should miss it"
+
+
+def test_an_identical_title_settles_it_where_content_could_not():
+    mirrors = find_mirrors([ARXIV_PAGE, FULL_ARTICLE], titles=[TITLE, TITLE])
+
+    # The article is the longer document, so the listing page is the one dropped.
+    assert len(FULL_ARTICLE) > len(ARXIV_PAGE)
+    assert mirrors == {0: 1}
+
+
+def test_the_fuller_version_is_kept_whichever_order_they_arrive_in():
+    """Which is the point: the publisher's article has the method and the
+    figures that the preprint listing page does not."""
+    assert find_mirrors([FULL_ARTICLE, ARXIV_PAGE], titles=[TITLE, TITLE]) == {1: 0}
+    assert find_mirrors([ARXIV_PAGE, FULL_ARTICLE], titles=[TITLE, TITLE]) == {0: 1}
+
+
+def test_a_generic_title_does_not_merge_unrelated_pages():
+    """"Adaptive Optics" appeared in the same live run both as a reference page
+    and inside a paper's title. They are not the same document."""
+    mirrors = find_mirrors([OTHER, FULL_ARTICLE], titles=["Adaptive Optics", "Adaptive Optics"])
+
+    assert mirrors == {}, "a two-word title must not be treated as an identity"
+
+
+def test_different_titles_on_the_same_topic_are_not_merged():
+    mirrors = find_mirrors(
+        [OTHER, FULL_ARTICLE],
+        titles=[
+            "Online learning of the transmission matrix for real-time correction",
+            "Wavefront shaping in multimode fibers by transmission matrix engineering",
+        ],
+    )
+
+    assert mirrors == {}
+
+
+def test_pages_with_unusable_titles_still_get_the_content_comparison():
+    assert find_mirrors([FULL_ARTICLE, STUB], titles=["", ""]) == {1: 0}
+
+
+def test_sibilant_nouns_are_pluralised_correctly():
+    """"Planned 4 searchs" reached a live progress line."""
+    from app.application.agents.activity import count
+
+    assert count(4, "search") == "4 searches"
+    assert count(1, "search") == "1 search"
+    assert count(2, "passage") == "2 passages"
+    assert count(3, "box") == "3 boxes"
