@@ -54,6 +54,34 @@ using @ as the command character.
 character that does not survive, so it never appears in your output.
 """
 
+EXPANSION_SYSTEM_PROMPT = """You plan the web searches for a literature review.
+
+One query is not enough. Web search ranks by links, so a single query on a
+well-studied topic returns the most-cited paper and its mirrors — the same work
+on arXiv, on the publisher, on a lab page, on an aggregator — and the rest of
+the field never appears.
+
+Produce {query_count} search queries that pull in DIFFERENT directions. Rules:
+   - The first query is the user's question, lightly cleaned up for a search box.
+   - Every other query must target a DISTINCT sub-area: a different method, a
+     different application, a competing approach, an adjacent problem, a review
+     or survey of the area.
+   - Do not paraphrase. "transmission matrix engineering" and "engineering the
+     transmission matrix" are the same query and waste a slot. Change the
+     substance: name a technique, a material, a task, a metric.
+   - Use the vocabulary a specialist would search with, not the user's wording,
+     where they differ.
+   - Each query is a search box query: keywords and phrases, no questions, no
+     boolean operators, no site: filters, under about twelve words.
+{recency_instruction}
+Return the queries in order of how central they are to the question."""
+
+RECENCY_INSTRUCTION = """   - The question asks about recent work. Make at least half the queries reach for it: name the current or previous year, or use terms the newest work uses ("2025", "real-time", "deep learning", "online learning"), rather than the classical formulation of the problem.
+"""
+
+NO_RECENCY_INSTRUCTION = """   - The question is not time-bound, so cover the area as a whole: include its foundations as well as its current practice.
+"""
+
 REFINE_SYSTEM_PROMPT = """You rewrite research search queries. The previous \
 query did not return enough useful evidence. Rewrite it to be more specific, \
 use alternative terminology, or broaden/narrow scope as appropriate. \
@@ -96,6 +124,13 @@ REFINE_PROMPT = ChatPromptTemplate.from_messages(
     [
         ("system", REFINE_SYSTEM_PROMPT),
         ("human", "Original question: {question}\nPrevious query: {previous_query}"),
+    ]
+)
+
+EXPANSION_PROMPT = ChatPromptTemplate.from_messages(
+    [
+        ("system", EXPANSION_SYSTEM_PROMPT),
+        ("human", "Question: {question}"),
     ]
 )
 

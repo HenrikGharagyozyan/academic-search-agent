@@ -10,6 +10,10 @@ from app.domain.search import SearchResult
 class ResearchState(TypedDict):
     question: str
     search_query: str
+    # The differently-aimed searches planned for this attempt, and the earliest
+    # publication year to accept when the question asks for recent work.
+    search_queries: list[str]
+    since_year: int | None
     search_results: list[SearchResult]
     chunks: list[Chunk]
     selected_chunks: list[Chunk]

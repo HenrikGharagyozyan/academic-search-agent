@@ -10,6 +10,18 @@ SCRAPE_CACHE_TTL_SECONDS = 3600
 SCRAPE_CACHE_MAXSIZE = 256
 
 
+def _date_filter(since_year: int) -> str:
+    """Firecrawl passes `tbs` through to the search engine untouched, so this is
+    Google's custom-date-range syntax: everything from 1 January of that year.
+
+    A relative window (`qdr:y`, the past year) is the more common form but too
+    tight for a literature question — a paper from eighteen months ago is still
+    current research, and the interesting work in the reported case was two
+    years old.
+    """
+    return f"cdr:1,cd_min:1/1/{since_year}"
+
+
 
 class FirecrawlProvider:
     def __init__(self) -> None:
@@ -20,8 +32,14 @@ class FirecrawlProvider:
         )
         self._scrape_cache_lock = threading.Lock()
 
-    def search(self, query: str, limit: int = 5) -> list[SearchResult]:
-        response = self._client.search(query, limit=limit)
+    def search(
+        self, query: str, limit: int = 5, since_year: int | None = None
+    ) -> list[SearchResult]:
+        response = self._client.search(
+            query,
+            limit=limit,
+            tbs=_date_filter(since_year) if since_year else None,
+        )
         web_results = response.web or []
 
         return [

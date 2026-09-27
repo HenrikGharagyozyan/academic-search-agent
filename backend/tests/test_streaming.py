@@ -172,6 +172,7 @@ def test_progress_covers_every_pipeline_stage(pipeline):
     stages = [e["data"]["stage"] for e in events if e["event"] == "progress"]
 
     assert stages == [
+        "plan_searches",
         "search",
         "retrieve_and_chunk",
         "select_relevant_chunks",

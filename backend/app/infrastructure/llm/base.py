@@ -12,9 +12,13 @@ from langchain_core.language_models import BaseChatModel
 from app.domain.answers import Claim, ClaimsResponse
 from app.domain.documents import Chunk
 from app.domain.grading import AnswerQualityGrade, RelevanceGrade
+from app.domain.query import QueryPlan
 from app.infrastructure.llm.prompts import (
     ANSWER_PROMPT,
     ANSWER_QUALITY_PROMPT,
+    EXPANSION_PROMPT,
+    NO_RECENCY_INSTRUCTION,
+    RECENCY_INSTRUCTION,
     REFINE_PROMPT,
     RELEVANCE_GRADE_PROMPT,
 )
@@ -29,6 +33,7 @@ class LangChainLLMProvider:
         self._provider_name = provider_name
         self._model_name = model_name
         self._answer_llm = llm.with_structured_output(ClaimsResponse)
+        self._plan_llm = llm.with_structured_output(QueryPlan)
         self._relevance_llm = llm.with_structured_output(RelevanceGrade)
         self._quality_llm = llm.with_structured_output(AnswerQualityGrade)
 
@@ -43,6 +48,19 @@ class LangChainLLMProvider:
     @staticmethod
     def _as_block(chunks: Sequence[Chunk], label: str) -> str:
         return "\n\n".join(f"[{label}: {c.chunk_id}]\n{c.text}" for c in chunks)
+
+    @llm_retry
+    def plan_searches(self, question: str, count: int, recent: bool) -> QueryPlan:
+        prompt = EXPANSION_PROMPT.invoke(
+            {
+                "question": question,
+                "query_count": count,
+                "recency_instruction": (
+                    RECENCY_INSTRUCTION if recent else NO_RECENCY_INSTRUCTION
+                ),
+            }
+        )
+        return self._plan_llm.invoke(prompt)
 
     @llm_retry
     def generate_answer(self, question: str, evidence: Sequence[Chunk]) -> ClaimsResponse:
