@@ -10,6 +10,7 @@ StepKind = Literal[
     "source_found",
     "scrape_ok",
     "scrape_failed",
+    "mirror_dropped",
     "collect",
     "select",
     "grade_relevance",
