@@ -203,14 +203,39 @@ function App() {
                 </p>
               )}
 
-              {answer.claims.map((claim, i) => (
-                <ClaimText
-                  key={i}
-                  claim={claim}
-                  evidence={answer.evidence}
-                  citationNumbers={citationNumbers}
-                />
-              ))}
+              {answer.claims.map((claim, i) => {
+                // A subheading appears where the theme changes, which turns a
+                // flat list of claims into the shape of the field. Claims
+                // sharing a theme arrive adjacent, so comparing with the
+                // previous one is enough — no regrouping, and the model's
+                // ordering is preserved.
+                const startsTheme =
+                  claim.theme !== "" && claim.theme !== answer.claims[i - 1]?.theme;
+
+                return (
+                  <div key={i}>
+                    {startsTheme && (
+                      <h3
+                        style={{
+                          fontSize: 12,
+                          fontWeight: 700,
+                          textTransform: "uppercase",
+                          letterSpacing: "0.05em",
+                          color: "var(--color-text-muted)",
+                          margin: i === 0 ? "0 0 10px" : "22px 0 10px",
+                        }}
+                      >
+                        {claim.theme}
+                      </h3>
+                    )}
+                    <ClaimText
+                      claim={claim}
+                      evidence={answer.evidence}
+                      citationNumbers={citationNumbers}
+                    />
+                  </div>
+                );
+              })}
 
               {answer.conclusion && (
                 <div

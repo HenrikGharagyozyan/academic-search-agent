@@ -13,6 +13,11 @@ class Claim(BaseModel):
     text: str
     evidence_ids: list[str]
     confidence: Confidence
+    # The direction or approach this claim belongs to, when the evidence covers
+    # several. Claims sharing a theme are meant to sit together, which is what
+    # turns a flat list of facts into a survey of the area. Empty when the
+    # evidence is about a single thing and grouping would be noise.
+    theme: str = ""
 
 
 class ClaimsResponse(BaseModel):
