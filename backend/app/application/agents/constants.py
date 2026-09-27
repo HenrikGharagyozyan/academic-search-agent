@@ -27,16 +27,35 @@ ROUTE_REFINE = "refine"
 # to take from each. The budget is deliberately spread: one query returning six
 # results is how a topic came back as one paper under six domains.
 MAX_QUERIES = 4
-RESULTS_PER_QUERY = 4
+RESULTS_PER_QUERY = 5
 
-# Distinct pages to read per attempt. Raised from 6 with the move to several
-# queries, so that breadth is not bought by dropping the canonical sources.
-MAX_SOURCES = 8
+# Distinct pages to read per attempt. The mirror check collapses duplicates of
+# one paper, so a page here is closer to a distinct document than it used to be,
+# and the relevance judge discards most of what arrives — both argue for asking
+# for more than the eight this started at.
+MAX_SOURCES = 12
 MAX_RETRIES = 1
-TOP_K_CHUNKS = 25
+
+# How many passages the relevance judge sees per call. Measured on a fixed set of
+# forty passages: one call kept 7-8 of them, batches of ten kept 15-17, batches
+# of eight kept 19-20. The judge cannot attend to forty heterogeneous passages at
+# once, and no wording of the prompt changed that — rewriting it moved the count
+# by one. Smaller batches cost more requests but the same tokens.
+GRADE_BATCH_SIZE = 8
+
+# Passages handed to the relevance judge and then to the model. Raised again
+# because the judge is where the funnel narrows hardest — it discards most of
+# what it sees — so the number of candidates it gets is what decides how many
+# approaches the answer can cover. Embedding cost does not scale with this:
+# every passage is embedded either way, so the price is generation tokens.
+TOP_K_CHUNKS = 40
 
 # For a recency question, how far back still counts as current work. A year is
 # the usual web default and too tight for a literature review.
 RECENCY_WINDOW_YEARS = 3
 
-MAX_SCRAPE_WORKERS = 8
+# Below the provider's per-minute scrape budget on purpose: twelve at once
+# exhausted it and the refused pages were reported as unreadable. The retry in
+# the adapter covers an occasional overshoot; this keeps the burst from causing
+# one in the first place.
+MAX_SCRAPE_WORKERS = 6

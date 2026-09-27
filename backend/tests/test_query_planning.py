@@ -19,7 +19,7 @@ from app.application.agents.constants import (
 )
 from app.application.agents.nodes import plan_searches_node, search_node
 from app.core.exceptions import UpstreamServiceError
-from app.domain.query import QueryPlan, has_recency_intent
+from app.domain.query import QueryPlan, anchor_terms, has_recency_intent, stays_on_topic
 from app.domain.search import SearchResult
 
 QUESTION = "latest research on transmission matrix engineering"
@@ -129,11 +129,13 @@ def test_planning_falls_back_to_the_bare_question_when_the_llm_fails():
 
 def test_blank_queries_from_the_planner_are_discarded():
     llm = MagicMock()
-    llm.plan_searches.return_value = QueryPlan(queries=["  ", "", "a real query"])
+    llm.plan_searches.return_value = QueryPlan(
+        queries=["  ", "", "transmission matrix engineering review"]
+    )
 
     out = plan_searches_node({"question": QUESTION, "search_query": QUESTION}, llm=llm)
 
-    assert out["search_queries"] == [QUESTION, "a real query"]
+    assert out["search_queries"] == [QUESTION, "transmission matrix engineering review"]
 
 
 # --- searching several queries ---------------------------------------------
@@ -234,3 +236,115 @@ def test_the_date_filter_is_googles_custom_range_syntax():
     from app.infrastructure.search.firecrawl import _date_filter
 
     assert _date_filter(2023) == "cdr:1,cd_min:1/1/2023"
+
+
+# --- staying inside the subject --------------------------------------------
+
+# Every string below came out of a real run. The first group is what the planner
+# produced when it worked; the second is the drift that made the agent answer
+# about the nonlinear Schrödinger equation and the Born approximation instead of
+# about multimode fibers.
+ON_TOPIC = [
+    "transmission matrix engineering 2023",
+    "metasurface transmission matrix techniques",
+    "adaptive optics transmission matrix applications",
+    "transmission matrix engineering recent research",
+    "real-time transmission matrix characterization",
+    "machine learning methods for transmission matrix reconstruction",
+]
+
+DRIFTED = [
+    "wavefront shaping techniques 2022",
+    "adaptive optics for imaging 2023",
+    "inverse scattering theory",
+    "nonlinear Schrodinger equation solitons",
+    "Born approximation weak scattering",
+]
+
+
+def test_the_questions_subject_words_are_what_anchor_it():
+    # "latest" and "research" say it is a research question, not what about.
+    assert anchor_terms(QUESTION) == {"transmission", "matrix", "engineering"}
+
+
+@pytest.mark.parametrize("query", ON_TOPIC)
+def test_a_query_that_keeps_the_subject_is_searched(query):
+    assert stays_on_topic(query, anchor_terms(QUESTION))
+
+
+@pytest.mark.parametrize("query", DRIFTED)
+def test_a_query_that_generalises_out_of_the_subject_is_not(query):
+    assert not stays_on_topic(query, anchor_terms(QUESTION))
+
+
+def test_drifted_queries_never_reach_the_search():
+    llm = MagicMock()
+    llm.plan_searches.return_value = QueryPlan(queries=[QUESTION, *DRIFTED, *ON_TOPIC[:2]])
+
+    out = plan_searches_node({"question": QUESTION, "search_query": QUESTION}, llm=llm)
+
+    assert out["search_queries"] == [QUESTION, *ON_TOPIC[:2]]
+
+
+def test_the_trail_says_which_queries_were_discarded():
+    """Silently dropping them would make a narrow answer look inexplicable."""
+    llm = MagicMock()
+    llm.plan_searches.return_value = QueryPlan(queries=[QUESTION, "inverse scattering theory"])
+
+    out = plan_searches_node({"question": QUESTION, "search_query": QUESTION}, llm=llm)
+    discarded = [s for s in out["activity"] if "left the subject" in s.label]
+
+    assert len(discarded) == 1
+    assert "inverse scattering theory" in discarded[0].detail
+
+
+def test_a_question_with_no_subject_words_anchors_nothing():
+    # Nothing to enforce against, so nothing is discarded: better a broad search
+    # than no search.
+    anchors = anchor_terms("what is the latest research")
+
+    assert anchors == frozenset()
+    assert stays_on_topic("anything at all", anchors)
+
+
+def test_a_one_word_subject_still_has_to_appear():
+    anchors = anchor_terms("recent work on photobleaching")
+
+    assert anchors == {"photobleaching"}
+    assert stays_on_topic("photobleaching kinetics 2025", anchors)
+    assert not stays_on_topic("fluorescence microscopy advances", anchors)
+
+
+def test_the_relevance_judge_separates_subject_from_angle():
+    """Both failure modes have happened. Judging only the register let
+    inverse-scattering chunks through as "on topic"; judging the subject too
+    narrowly then threw away 26 of 30 passages, including different methods for
+    the same problem, and the answer covered three approaches instead of six."""
+    from app.infrastructure.llm.prompts import RELEVANCE_GRADE_SYSTEM_PROMPT as prompt
+
+    assert "SUBJECT versus ANGLE" in prompt
+    # A different method for the same problem must be kept...
+    assert "Do not reject a chunk for approaching the subject differently" in prompt
+    assert "Err towards keeping" in prompt
+    # ...while a different subject sharing the vocabulary must not be.
+    assert "REJECT inverse scattering theory" in prompt
+    assert "adaptive optics in ophthalmology" in prompt
+    # And finding nothing is still an acceptable outcome.
+    assert "returning nothing is still a" in prompt
+
+
+def test_the_judge_is_no_longer_told_to_be_strict_for_its_own_sake():
+    """These three lines are what over-tightened it."""
+    from app.infrastructure.llm.prompts import RELEVANCE_GRADE_SYSTEM_PROMPT as prompt
+
+    assert "Being strict on subject is the point" not in prompt
+    assert "Do not stretch to fill a quota" not in prompt
+    assert "Not the general area" not in prompt
+
+
+def test_the_expansion_prompt_shows_what_drift_looks_like():
+    from app.infrastructure.llm.prompts import EXPANSION_SYSTEM_PROMPT
+
+    assert "STAY IN THE SUBJECT" in EXPANSION_SYSTEM_PROMPT
+    # The examples name the exact failure that was reported.
+    assert "BAD  — inverse scattering theory" in EXPANSION_SYSTEM_PROMPT

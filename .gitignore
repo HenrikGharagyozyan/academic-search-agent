@@ -151,6 +151,10 @@ activemq-data/
 
 # Environments
 .env
+# Any variant: a stray .env.bak from a local experiment carries the same keys
+# and would not otherwise be ignored.
+.env.*
+!.env.example
 .envrc
 .venv
 env/

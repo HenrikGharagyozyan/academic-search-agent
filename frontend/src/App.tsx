@@ -3,7 +3,7 @@ import { streamQuestion } from "./api/research";
 import type { ActivityStep, Answer } from "./types/answer";
 import { ActivityLog } from "./components/ActivityLog";
 import { ClaimText } from "./components/ClaimText";
-import { MathText } from "./components/MathText";
+import { Prose } from "./components/Prose";
 import { buildCitationNumbers } from "./utils/citations";
 
 function App() {
@@ -58,6 +58,10 @@ function App() {
   };
 
   const citationNumbers = answer ? buildCitationNumbers(answer) : new Map();
+  // Distinct themes in the order they appear, so each section can be numbered.
+  const themeOrder = answer
+    ? [...new Set(answer.claims.map((c) => c.theme).filter(Boolean))]
+    : [];
 
   return (
     <div
@@ -199,7 +203,7 @@ function App() {
                     lineHeight: 1.6,
                   }}
                 >
-                  <MathText text={answer.summary} />
+                  <Prose text={answer.summary} />
                 </p>
               )}
 
@@ -217,14 +221,16 @@ function App() {
                     {startsTheme && (
                       <h3
                         style={{
-                          fontSize: 12,
-                          fontWeight: 700,
-                          textTransform: "uppercase",
-                          letterSpacing: "0.05em",
-                          color: "var(--color-text-muted)",
-                          margin: i === 0 ? "0 0 10px" : "22px 0 10px",
+                          fontSize: 18,
+                          fontWeight: 650,
+                          lineHeight: 1.35,
+                          color: "var(--color-text)",
+                          margin: i === 0 ? "0 0 10px" : "28px 0 10px",
                         }}
                       >
+                        <span style={{ color: "var(--color-text-muted)", marginRight: 8 }}>
+                          {themeOrder.indexOf(claim.theme) + 1}.
+                        </span>
                         {claim.theme}
                       </h3>
                     )}
@@ -257,9 +263,9 @@ function App() {
                   >
                     Conclusion
                   </div>
-                  <p style={{ fontSize: 16, lineHeight: 1.7, margin: 0 }}>
-                    <MathText text={answer.conclusion} />
-                  </p>
+                  <div style={{ fontSize: 16 }}>
+                    <Prose text={answer.conclusion} />
+                  </div>
                 </div>
               )}
             </>

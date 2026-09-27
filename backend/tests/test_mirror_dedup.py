@@ -330,3 +330,109 @@ def test_sibilant_nouns_are_pluralised_correctly():
     assert count(1, "search") == "1 search"
     assert count(2, "passage") == "2 passages"
     assert count(3, "box") == "3 boxes"
+
+
+# --- the provider's own rate limit -----------------------------------------
+
+
+def test_a_rate_limited_scrape_is_retried_then_succeeds():
+    """Twelve concurrent scrapes exhausted the per-minute budget, and the pages
+    it refused were reported as unreadable — so a quota problem looked like a
+    broken site and which sources an answer used varied run to run."""
+    from unittest.mock import patch
+
+    from app.infrastructure.search.firecrawl import FirecrawlProvider
+
+    with patch("app.infrastructure.search.firecrawl.FirecrawlApp") as app_cls:
+        client = MagicMock()
+        calls = {"n": 0}
+
+        def scrape(url, formats):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                raise RuntimeError("Rate Limit Exceeded: Consumed (req/min): 11")
+            page = MagicMock()
+            page.markdown = "content"
+            page.metadata.title = "T"
+            return page
+
+        client.scrape.side_effect = scrape
+        app_cls.return_value = client
+
+        provider = FirecrawlProvider()
+        with patch("app.infrastructure.search.firecrawl.time.sleep"):
+            page = provider.scrape("https://example.com")
+
+    assert page.markdown == "content"
+    assert calls["n"] == 2
+
+
+def test_a_persistent_rate_limit_is_reported_as_itself():
+    from unittest.mock import patch
+
+    from app.infrastructure.search.firecrawl import (
+        SCRAPE_RETRIES,
+        FirecrawlProvider,
+        ScrapeRateLimited,
+    )
+
+    with patch("app.infrastructure.search.firecrawl.FirecrawlApp") as app_cls:
+        client = MagicMock()
+        client.scrape.side_effect = RuntimeError("Rate limit exceeded")
+        app_cls.return_value = client
+
+        provider = FirecrawlProvider()
+        with patch("app.infrastructure.search.firecrawl.time.sleep"), pytest.raises(
+            ScrapeRateLimited
+        ):
+            provider.scrape("https://example.com")
+
+        assert client.scrape.call_count == SCRAPE_RETRIES + 1
+
+
+def test_an_ordinary_scrape_failure_is_not_retried():
+    """Retrying a page that simply cannot be read wastes the quota that the
+    retry exists to protect."""
+    from unittest.mock import patch
+
+    from app.infrastructure.search.firecrawl import FirecrawlProvider
+
+    with patch("app.infrastructure.search.firecrawl.FirecrawlApp") as app_cls:
+        client = MagicMock()
+        client.scrape.side_effect = RuntimeError("Website Not Supported")
+        app_cls.return_value = client
+
+        provider = FirecrawlProvider()
+        with pytest.raises(RuntimeError):
+            provider.scrape("https://example.com")
+
+        assert client.scrape.call_count == 1
+
+
+def test_the_trail_tells_a_rate_limit_apart_from_a_broken_page():
+    from app.infrastructure.search.firecrawl import ScrapeRateLimited
+
+    provider = MagicMock()
+
+    def scrape(url):
+        if "limited" in url:
+            raise ScrapeRateLimited("quota")
+        if "broken" in url:
+            raise RuntimeError("Website Not Supported")
+        return ScrapedPage(url=url, title="t", markdown=ARTICLE)
+
+    provider.scrape.side_effect = scrape
+    state = {
+        "search_results": [
+            SearchResult(title="t", url=u, snippet="")
+            for u in ("https://limited.com", "https://broken.com", "https://fine.com")
+        ]
+    }
+
+    out = retrieve_and_chunk_node(state, provider)
+    failures = {s.url: s for s in out["activity"] if s.kind == "scrape_failed"}
+
+    assert "rate limit" in failures["https://limited.com"].label
+    assert failures["https://limited.com"].detail == "not a problem with the page"
+    assert "Could not read" in failures["https://broken.com"].label
+    assert failures["https://broken.com"].detail is None

@@ -8,6 +8,8 @@ forbids it; this removes whatever slips through anyway.
 
 import re
 
+from app.domain.text.fences import outside_fences
+
 _UUID = r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
 _LABEL = r"evidence[_ ]ids?"
 
@@ -33,7 +35,15 @@ _LEFTOVERS = [
 
 
 def strip_evidence_ids(text: str) -> str:
-    """Removes evidence ids the model wrote into prose, and tidies what is left."""
+    """Removes evidence ids the model wrote into prose, and tidies what is left.
+
+    Fenced blocks are left alone: the tidying collapses runs of spaces, and in a
+    diagram those runs are the drawing.
+    """
+    return outside_fences(text, _strip_from_prose)
+
+
+def _strip_from_prose(text: str) -> str:
     # Each pattern eats the whitespace on both sides of the id, so cutting one
     # out of mid-sentence would run the surrounding words together
     # ("Adam <id> converges" -> "Adamconverges"). Substituting a space keeps the

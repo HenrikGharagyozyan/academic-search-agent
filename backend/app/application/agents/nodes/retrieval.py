@@ -10,6 +10,7 @@ from app.domain.text.chunker import chunk_lines, deduplicate_chunks
 from app.domain.text.plain import to_label
 from app.domain.text.similarity import find_mirrors
 from app.domain.text.splitter import split_into_lines
+from app.infrastructure.search.firecrawl import ScrapeRateLimited
 from app.ports.search import SearchProvider
 
 logger = logging.getLogger(__name__)
@@ -17,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 def _scrape_and_chunk(
     search_provider: SearchProvider, result: SearchResult
-) -> list[Chunk] | None:
+) -> list[Chunk] | None | ScrapeRateLimited:
     """Scrapes one page and cuts it into chunks, or None if it cannot be read.
 
     Chunking happens here rather than in the caller so that the slow part and
@@ -25,6 +26,11 @@ def _scrape_and_chunk(
     """
     try:
         page = search_provider.scrape(result.url)
+    except ScrapeRateLimited as exc:
+        # Reported apart from an unreadable page: the reader should know a source
+        # was skipped for quota rather than believing the site was broken.
+        logger.warning("Rate limited scraping %s", result.url)
+        return exc
     except Exception:
         logger.warning("Failed to scrape %s, skipping", result.url, exc_info=True)
         return None
@@ -58,6 +64,16 @@ def retrieve_and_chunk_node(state: ResearchState, search_provider: SearchProvide
         for future in as_completed(pending):
             index, result = pending[future]
             chunks = future.result()
+
+            if isinstance(chunks, ScrapeRateLimited):
+                recorder.record(
+                    "scrape_failed",
+                    f"Skipped {short_host(result.url)} — search provider rate limit",
+                    url=result.url,
+                    title=to_label(result.title) or short_host(result.url),
+                    detail="not a problem with the page",
+                )
+                continue
 
             if chunks is None:
                 recorder.record(
