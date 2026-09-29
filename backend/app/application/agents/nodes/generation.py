@@ -4,6 +4,7 @@ from app.application.agents.activity import ActivityRecorder, count
 from app.application.agents.state import ResearchState
 from app.domain.answers import ClaimsResponse
 from app.domain.text.cleanup import find_evidence_id_leak, strip_evidence_ids
+from app.domain.text.headings import tidy_theme
 from app.domain.text.latex import restore_latex
 from app.ports.llm import LLMProvider
 
@@ -25,7 +26,9 @@ def _presented(result: ClaimsResponse) -> ClaimsResponse:
         update={
             "summary": _presentable(result.summary),
             "claims": [
-                claim.model_copy(update={"text": _presentable(claim.text)})
+                claim.model_copy(
+                    update={"text": _presentable(claim.text), "theme": tidy_theme(claim.theme)}
+                )
                 for claim in result.claims
             ],
             "conclusion": _presentable(result.conclusion),

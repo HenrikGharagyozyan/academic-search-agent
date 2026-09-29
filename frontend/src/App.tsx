@@ -228,9 +228,11 @@ function App() {
                           margin: i === 0 ? "0 0 10px" : "28px 0 10px",
                         }}
                       >
-                        <span style={{ color: "var(--color-text-muted)", marginRight: 8 }}>
+                        {/* A real space, not a margin: the heading has to read
+                            "1. Error rates" when copied, not "1.Error rates". */}
+                        <span style={{ color: "var(--color-text-muted)" }}>
                           {themeOrder.indexOf(claim.theme) + 1}.
-                        </span>
+                        </span>{" "}
                         {claim.theme}
                       </h3>
                     )}

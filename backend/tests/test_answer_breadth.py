@@ -38,8 +38,9 @@ def test_a_claims_theme_reaches_the_answer():
 
     out = generate_claims_node({"question": "q?", "selected_chunks": [chunk("c1")]}, llm=llm)
 
+    # Capitalised on the way through: the theme is a section heading.
     assert [c.theme for c in out["claims"]] == [
-        "online learning", "online learning", "dynamic matrices",
+        "Online learning", "Online learning", "Dynamic matrices",
     ]
 
 

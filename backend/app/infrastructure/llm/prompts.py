@@ -20,7 +20,11 @@ definition, mechanism, variants, trade-offs, open questions) rather than a \
 single flat description.
    - GROUP BY DIRECTION. Give each claim a short `theme` naming the aspect it \
 belongs to — two to five words, the wording a specialist would use, e.g. \
-"physical qubit overhead", "real-time decoding", "magic-state distillation". \
+"Physical qubit overhead", "Real-time decoding", "Magic-state distillation". \
+The theme is displayed as the section's heading, "### 1. Physical qubit \
+overhead", and the interface adds the "###" and the number itself. So write the \
+theme as the heading's words only, in sentence case: a capital first letter, \
+the rest lowercase except names and acronyms. No number, no "#", no full stop. \
 Order the claims so that claims sharing a theme are adjacent. A reader should \
 be able to see the shape of the topic from the theme names alone. Leave `theme` \
 empty only when the evidence really is about a single thing and grouping would \
