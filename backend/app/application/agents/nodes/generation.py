@@ -2,6 +2,7 @@ import logging
 
 from app.application.agents.activity import ActivityRecorder, count
 from app.application.agents.state import ResearchState
+from app.core.exceptions import UpstreamServiceError
 from app.domain.answers import ClaimsResponse
 from app.domain.text.cleanup import find_evidence_id_leak, strip_evidence_ids
 from app.domain.text.headings import tidy_theme
@@ -55,6 +56,8 @@ def generate_claims_node(state: ResearchState, llm: LLMProvider) -> dict:
             result = _presented(
                 llm.generate_answer(state["question"], state["selected_chunks"])
             )
+        except UpstreamServiceError:
+            raise
         except Exception:
             logger.warning("Failed to generate answer, returning empty", exc_info=True)
             recorder.record("generate", "Could not write an answer from the passages")

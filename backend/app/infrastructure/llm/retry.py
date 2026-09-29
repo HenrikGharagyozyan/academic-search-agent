@@ -21,11 +21,36 @@ _TRANSIENT_MARKERS = (
     "rate limit",
     "timeout",
     "timed out",
+    # OpenRouter reserves credit for every request in flight; a refusal on that
+    # ground clears as soon as the others finish.
+    "in-flight requests",
 )
+
+# A refusal to spend: the balance cannot cover the request. Checked before the
+# transient markers, because no amount of waiting fixes it.
+_BILLING_MARKERS = (
+    "error code: 402",
+    "payment required",
+    "requires more credits",
+    "insufficient credits",
+)
+
+
+def is_billing_error(exc: BaseException) -> bool:
+    """True when the provider refused the request because it cannot be paid for.
+
+    A refusal over requests already in flight is not one: it clears on its own.
+    """
+    message = str(exc).lower()
+    if "in-flight requests" in message:
+        return False
+    return any(marker in message for marker in _BILLING_MARKERS)
 
 
 def is_transient_error(exc: BaseException) -> bool:
     """True when the failure is worth retrying rather than reporting."""
+    if is_billing_error(exc):
+        return False
     message = str(exc).lower()
     return any(marker in message for marker in _TRANSIENT_MARKERS)
 

@@ -4,6 +4,7 @@ from datetime import date
 from app.application.agents.activity import ActivityRecorder, count
 from app.application.agents.constants import MAX_QUERIES, RECENCY_WINDOW_YEARS
 from app.application.agents.state import ResearchState
+from app.core.exceptions import UpstreamServiceError
 from app.domain.query import anchor_terms, has_recency_intent, stays_on_topic
 from app.ports.llm import LLMProvider
 
@@ -25,6 +26,8 @@ def plan_searches_node(state: ResearchState, llm: LLMProvider) -> dict:
     try:
         plan = llm.plan_searches(question, count=MAX_QUERIES, recent=recent)
         proposed = [q.strip() for q in plan.queries if q.strip()]
+    except UpstreamServiceError:
+        raise
     except Exception:
         logger.warning("Query planning failed, searching the question as-is", exc_info=True)
         proposed = []

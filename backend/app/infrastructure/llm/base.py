@@ -5,10 +5,13 @@ structured output and the retry policy live here, so adding a provider cannot
 quietly change how the pipeline behaves.
 """
 
-from collections.abc import Sequence
+import functools
+from collections.abc import Callable, Sequence
+from typing import ParamSpec, TypeVar
 
 from langchain_core.language_models import BaseChatModel
 
+from app.core.exceptions import ProviderCreditsExhausted
 from app.domain.answers import Claim, ClaimsResponse
 from app.domain.documents import Chunk
 from app.domain.grading import AnswerQualityGrade, RelevanceGrade
@@ -22,7 +25,34 @@ from app.infrastructure.llm.prompts import (
     REFINE_PROMPT,
     RELEVANCE_GRADE_PROMPT,
 )
-from app.infrastructure.llm.retry import llm_retry
+from app.infrastructure.llm.retry import is_billing_error, llm_retry
+
+P = ParamSpec("P")
+R = TypeVar("R")
+
+
+def _billing_surfaces(method: Callable[P, R]) -> Callable[P, R]:
+    """Turns a refusal to pay into an error the reader is shown.
+
+    The nodes treat a failed model call as a degraded step and carry on, which
+    is right for an outage in one call and wrong for an empty balance: every
+    call of the run fails, and the answer arrives as "no reliable sources".
+    """
+
+    @functools.wraps(method)
+    def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
+        try:
+            return method(*args, **kwargs)
+        except Exception as exc:
+            if not is_billing_error(exc):
+                raise
+            provider = getattr(args[0], "provider_name", "the language model provider")
+            raise ProviderCreditsExhausted(
+                f"The language model provider ({provider}) is out of credits and "
+                "refused the request. Top up the account and try again."
+            ) from exc
+
+    return wrapper
 
 
 class LangChainLLMProvider:
@@ -61,6 +91,7 @@ class LangChainLLMProvider:
     def _as_block(chunks: Sequence[Chunk], label: str) -> str:
         return "\n\n".join(f"[{label}: {c.chunk_id}]\n{c.text}" for c in chunks)
 
+    @_billing_surfaces
     @llm_retry
     def plan_searches(self, question: str, count: int, recent: bool) -> QueryPlan:
         prompt = EXPANSION_PROMPT.invoke(
@@ -74,6 +105,7 @@ class LangChainLLMProvider:
         )
         return self._plan_llm.invoke(prompt)
 
+    @_billing_surfaces
     @llm_retry
     def generate_answer(self, question: str, evidence: Sequence[Chunk]) -> ClaimsResponse:
         prompt = ANSWER_PROMPT.invoke(
@@ -81,6 +113,7 @@ class LangChainLLMProvider:
         )
         return self._answer_llm.invoke(prompt)
 
+    @_billing_surfaces
     @llm_retry
     def refine_query(self, question: str, previous_query: str) -> str:
         prompt = REFINE_PROMPT.invoke(
@@ -90,6 +123,7 @@ class LangChainLLMProvider:
         # of content blocks for others, and only `.text` flattens both.
         return self._llm.invoke(prompt).text.strip()
 
+    @_billing_surfaces
     @llm_retry
     def grade_relevance(self, question: str, chunks: Sequence[Chunk]) -> RelevanceGrade:
         prompt = RELEVANCE_GRADE_PROMPT.invoke(
@@ -97,6 +131,7 @@ class LangChainLLMProvider:
         )
         return self._relevance_llm.invoke(prompt)
 
+    @_billing_surfaces
     @llm_retry
     def grade_answer_quality(
         self, question: str, summary: str, claims: Sequence[Claim], conclusion: str

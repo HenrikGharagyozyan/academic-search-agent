@@ -4,6 +4,7 @@ from concurrent.futures import ThreadPoolExecutor
 from app.application.agents.activity import ActivityRecorder, count
 from app.application.agents.constants import GRADE_BATCH_SIZE
 from app.application.agents.state import ResearchState
+from app.core.exceptions import UpstreamServiceError
 from app.domain.documents import Chunk
 from app.ports.llm import LLMProvider
 
@@ -16,6 +17,8 @@ def _judge_batch(
     """The ids this batch's judge kept, or None if the call failed."""
     try:
         grade = llm.grade_relevance(question, batch)
+    except UpstreamServiceError:
+        raise
     except Exception:
         logger.warning("Relevance grading failed for a batch", exc_info=True)
         return None
@@ -93,6 +96,8 @@ def grade_answer_node(state: ResearchState, llm: LLMProvider) -> dict:
         grade = llm.grade_answer_quality(
             state["question"], state["summary"], state["claims"], state["conclusion"]
         )
+    except UpstreamServiceError:
+        raise
     except Exception:
         logger.warning("Answer quality grading failed, trusting groundedness check", exc_info=True)
         recorder.record(
