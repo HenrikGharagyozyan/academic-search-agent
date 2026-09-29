@@ -28,14 +28,26 @@ from app.infrastructure.llm.retry import llm_retry
 class LangChainLLMProvider:
     """Base adapter for any model reachable through a LangChain chat interface."""
 
-    def __init__(self, llm: BaseChatModel, *, provider_name: str, model_name: str) -> None:
-        self._llm = llm
+    def __init__(
+        self,
+        llm: BaseChatModel,
+        *,
+        provider_name: str,
+        model_name: str,
+        short_llm: BaseChatModel | None = None,
+    ) -> None:
+        """``short_llm`` is the same model configured for the calls whose reply
+        is a few hundred tokens — planning, grading, rewriting a query — when
+        the vendor charges for the response ceiling rather than the response.
+        Only the answer itself needs a long one."""
+        short_llm = short_llm or llm
+        self._llm = short_llm
         self._provider_name = provider_name
         self._model_name = model_name
         self._answer_llm = llm.with_structured_output(ClaimsResponse)
-        self._plan_llm = llm.with_structured_output(QueryPlan)
-        self._relevance_llm = llm.with_structured_output(RelevanceGrade)
-        self._quality_llm = llm.with_structured_output(AnswerQualityGrade)
+        self._plan_llm = short_llm.with_structured_output(QueryPlan)
+        self._relevance_llm = short_llm.with_structured_output(RelevanceGrade)
+        self._quality_llm = short_llm.with_structured_output(AnswerQualityGrade)
 
     @property
     def provider_name(self) -> str:
