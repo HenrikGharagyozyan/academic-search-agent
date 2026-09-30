@@ -119,11 +119,19 @@ def has_recency_intent(text: str, today: date | None = None) -> bool:
     )
 
 
+def fold_plural(word: str) -> str:
+    """"transformers" and "transformer" are one term. Nothing cleverer than
+    that: a stemmer would also fold "mechanistic" onto "mechanism"."""
+    if len(word) > 3 and word.endswith("s") and not word.endswith("ss"):
+        return word[:-1]
+    return word
+
+
 def anchor_terms(question: str) -> frozenset[str]:
     """The words that say what the question is about, stripped of everything that
     only says it is a question about research."""
     return frozenset(
-        word
+        fold_plural(word)
         for word in _WORD.findall(question.lower())
         if len(word) > 2 and word not in _GENERIC
     )

@@ -226,6 +226,11 @@ Produce {query_count} search queries. Rules:
      same problem, a review of that exact topic.
    - Add specialist vocabulary alongside the user's terms, not instead of them.
      If a specialist calls it something else, search for both.
+   - NAME THE FIELD'S OWN TERMS. A specialist does not search for "techniques",
+     "recent advances" or "analysis of" — those words find textbooks and listicles.
+     They search for the methods by name. At least two queries must pair the
+     question's terms with a named method, tool, benchmark or result of that
+     subfield, the ones its own papers put in their titles.
    - Do not paraphrase. "transmission matrix engineering" and "engineering the
      transmission matrix" are the same query and waste a slot.
    - Each query is a search box query: keywords and phrases, no questions, no
@@ -247,6 +252,16 @@ For the question "how do diffusion models avoid mode collapse":
    GOOD — classifier-free guidance diversity trade-off
    BAD  — generative adversarial network mode collapse (a different model family)
    BAD  — probability theory of stochastic processes    (the parent field)
+
+For the question "latest research on mechanistic interpretability of transformers":
+   GOOD — mechanistic interpretability transformers circuit tracing 2025
+   GOOD — mechanistic interpretability attribution graphs cross-layer transcoder
+   GOOD — sparse autoencoder features transformer interpretability circuits
+   BAD  — transformer model interpretability techniques   (generic: finds
+          explainability toolkits and relevance propagation, a different area)
+   BAD  — mechanistic analysis of transformer architectures recent advances
+          (drops "interpretability", names no method, finds surveys of the
+          architecture)
 
 Return the queries in order of how central they are to the question."""
 

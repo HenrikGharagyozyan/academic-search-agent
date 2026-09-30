@@ -203,6 +203,8 @@ API changes: they all depend on the `LLMProvider` port.
   scraped page content is cached (by URL, one hour TTL).
 - **Gemini free-tier quotas are small.** Each answer makes several model calls (embeddings, generation, and possibly refine calls), so you can hit a free-tier daily limit quickly. Set `LLM_PROVIDER=openrouter` to move generation and grading off Gemini; embeddings stay on Gemini either way. Rate-limit and 503 errors are retried with backoff.
 
+- **The search planner only knows the vocabulary its model was trained on.** Breadth comes from the planner writing several differently-aimed queries, and in a narrow, fast-moving field the right queries name methods that may postdate the model. Measured on "latest research on mechanistic interpretability of transformers 2025-2026": the search provider ranks `transformer-circuits.pub` first for `mechanistic interpretability transformers circuit tracing 2025` and for `attribution graphs cross-layer transcoder`, so the source is indexed and reachable — but the planner (gpt-4o-mini) writes queries such as `mechanistic interpretability attention heads visual analysis`, even with those terms given as an example in its prompt, and the only page returned from that site is its index. The queries now stay inside the subject; they do not yet name what the field currently calls its methods. The fix that would is a second planning round that reads the titles the first search returned and takes its terms from them; it is not built.
+
 ## Contributing
 
 - `main`: stable, released state only
