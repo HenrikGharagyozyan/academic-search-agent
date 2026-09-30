@@ -2,6 +2,8 @@ export interface Claim {
   text: string;
   evidence_ids: string[];
   confidence: "high" | "medium" | "low";
+  /** The direction this claim belongs to; empty when the topic has only one. */
+  theme: string;
 }
 
 export interface AnswerEvidence {

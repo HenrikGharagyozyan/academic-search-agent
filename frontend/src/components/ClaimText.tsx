@@ -1,6 +1,6 @@
 import type { Answer } from "../types/answer";
 import { Citation } from "./Citation";
-import { MathText } from "./MathText";
+import { Prose } from "./Prose";
 
 interface ClaimTextProps {
   claim: Answer["claims"][number];
@@ -21,10 +21,9 @@ export function ClaimText({ claim, evidence, citationNumbers }: ClaimTextProps) 
   const confidenceStyle = CONFIDENCE_STYLES[claim.confidence];
 
   return (
-    <p
+    <div
       style={{
         marginBottom: 18,
-        lineHeight: 1.7,
         fontSize: 16,
         color: "var(--color-text)",
       }}
@@ -47,7 +46,7 @@ export function ClaimText({ claim, evidence, citationNumbers }: ClaimTextProps) 
           {claim.confidence.toUpperCase()}
         </span>
       )}
-      <MathText text={claim.text} />{" "}
+      <Prose text={claim.text} />
       {claim.evidence_ids
         .map((id) => {
           const item = evidence[id];
@@ -65,6 +64,6 @@ export function ClaimText({ claim, evidence, citationNumbers }: ClaimTextProps) 
             {i < arr.length - 1 && <span style={{ marginRight: 2 }}>,</span>}
           </span>
         ))}
-    </p>
+    </div>
   );
 }

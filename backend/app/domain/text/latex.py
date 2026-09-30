@@ -9,6 +9,8 @@ backslash is restored here.
 
 import re
 
+from app.domain.text.fences import outside_fences
+
 # Inline $...$ and block $$...$$ math expressions. For inline math, allow any
 # characters except $, so we can catch fragments already corrupted by control characters.
 _MATH_SPAN = re.compile(r"\$\$.+?\$\$|\$[^$]{1,400}?\$", re.DOTALL)
@@ -19,6 +21,14 @@ _CONTROL_CHARS = re.compile(r"[\x00-\x09\x0b-\x1f]")
 
 
 def restore_latex(text: str) -> str:
-    """Removes stray control characters and restores backslashes inside math expressions."""
+    """Removes stray control characters and restores backslashes inside math expressions.
+
+    Fenced blocks are left alone: a diagram's @ is an @, and its alignment is
+    not a stray control character.
+    """
+    return outside_fences(text, _restore_in_prose)
+
+
+def _restore_in_prose(text: str) -> str:
     cleaned = _CONTROL_CHARS.sub("", text)
     return _MATH_SPAN.sub(lambda m: m.group(0).replace("@", "\\"), cleaned)

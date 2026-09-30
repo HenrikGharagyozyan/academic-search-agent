@@ -31,6 +31,8 @@ class ResearchService:
         return {
             "question": question,
             "search_query": question,
+            "search_queries": [],
+            "since_year": None,
             "search_results": [],
             "chunks": [],
             "selected_chunks": [],

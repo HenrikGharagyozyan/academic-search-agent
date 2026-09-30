@@ -5,10 +5,12 @@ from typing import Literal
 from pydantic import BaseModel
 
 StepKind = Literal[
+    "plan",
     "search",
     "source_found",
     "scrape_ok",
     "scrape_failed",
+    "mirror_dropped",
     "collect",
     "select",
     "grade_relevance",

@@ -12,6 +12,7 @@ from typing import Protocol, runtime_checkable
 from app.domain.answers import Claim, ClaimsResponse
 from app.domain.documents import Chunk
 from app.domain.grading import AnswerQualityGrade, RelevanceGrade
+from app.domain.query import QueryPlan
 
 
 @runtime_checkable
@@ -25,6 +26,9 @@ class LLMProvider(Protocol):
     @property
     def model_name(self) -> str:
         """The model actually in use, as the vendor names it."""
+
+    def plan_searches(self, question: str, count: int, recent: bool) -> QueryPlan:
+        """Turns one question into several deliberately different searches."""
 
     def generate_answer(self, question: str, evidence: Sequence[Chunk]) -> ClaimsResponse:
         """Writes a grounded answer citing only the given chunks."""

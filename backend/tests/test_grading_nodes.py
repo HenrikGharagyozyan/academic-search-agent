@@ -48,11 +48,11 @@ def test_grade_relevance_keeps_all_when_grading_fails():
     state = {"question": "q?", "selected_chunks": chunks}
     result = grade_relevance_node(state, llm=mock_llm)
 
-    # A failing judge is no reason to lose context: the chunks are left alone.
-    assert "selected_chunks" not in result
-    # The reader still gets told the judge was skipped rather than silence.
+    # A failing judge is no reason to lose context: the batch keeps its chunks.
+    assert [c.chunk_id for c in result["selected_chunks"]] == ["c1", "c2"]
+    # The reader still gets told the judgement was skipped rather than silence.
     assert result["activity"][0].kind == "grade_relevance"
-    assert "keeping all" in result["activity"][0].label
+    assert "could not be judged" in result["activity"][0].detail
 
 
 def test_grade_answer_marks_insufficient_when_unsatisfactory():
@@ -86,3 +86,59 @@ def test_grade_answer_returns_empty_when_satisfactory():
     # Nothing about the verdict changes; only the trail grows.
     assert "evidence_sufficient" not in result
     assert result["activity"][0].label.endswith("satisfactory")
+
+def test_passages_are_judged_in_batches_not_all_at_once():
+    """One call over forty passages kept under a fifth of them; batches of eight
+    keep about half. Measured on a fixed set — the prompt was not the lever."""
+    from app.application.agents.constants import GRADE_BATCH_SIZE
+
+    chunks = [make_chunk(f"c{i}") for i in range(GRADE_BATCH_SIZE * 3)]
+    mock_llm = MagicMock()
+    mock_llm.grade_relevance.side_effect = lambda q, batch: RelevanceGrade(
+        relevant_chunk_ids=[c.chunk_id for c in batch], reasoning="all"
+    )
+
+    result = grade_relevance_node({"question": "q?", "selected_chunks": chunks}, llm=mock_llm)
+
+    assert mock_llm.grade_relevance.call_count == 3
+    assert all(
+        len(call.args[1]) <= GRADE_BATCH_SIZE
+        for call in mock_llm.grade_relevance.call_args_list
+    )
+    assert len(result["selected_chunks"]) == len(chunks)
+
+
+def test_one_failed_batch_does_not_discard_the_others_judgement():
+    from app.application.agents.constants import GRADE_BATCH_SIZE
+
+    chunks = [make_chunk(f"c{i}") for i in range(GRADE_BATCH_SIZE * 2)]
+    calls = {"n": 0}
+
+    def grade(question, batch):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise RuntimeError("upstream down")
+        # the second judge rejects everything it sees
+        return RelevanceGrade(relevant_chunk_ids=[], reasoning="none relevant")
+
+    mock_llm = MagicMock()
+    mock_llm.grade_relevance.side_effect = grade
+
+    result = grade_relevance_node({"question": "q?", "selected_chunks": chunks}, llm=mock_llm)
+    kept = {c.chunk_id for c in result["selected_chunks"]}
+
+    # The unjudged batch is kept, the judged one honoured. Not all-or-nothing.
+    assert len(kept) == GRADE_BATCH_SIZE
+
+
+def test_the_order_of_the_ranking_is_preserved_across_batches():
+    chunks = [make_chunk(f"c{i}") for i in range(12)]
+    mock_llm = MagicMock()
+    mock_llm.grade_relevance.side_effect = lambda q, batch: RelevanceGrade(
+        relevant_chunk_ids=[batch[0].chunk_id], reasoning="first only"
+    )
+
+    result = grade_relevance_node({"question": "q?", "selected_chunks": chunks}, llm=mock_llm)
+    kept = [c.chunk_id for c in result["selected_chunks"]]
+
+    assert kept == sorted(kept, key=lambda cid: [c.chunk_id for c in chunks].index(cid))

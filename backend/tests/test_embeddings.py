@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from app.infrastructure.embeddings.gemini import (
+    EMBED_BATCH_SIZE,
     EMBED_CACHE_MAXSIZE,
     MAX_EMBED_RETRIES,
     GeminiEmbeddingsProvider,
@@ -109,3 +110,76 @@ def test_the_cache_is_bounded(embeddings):
         provider.embed_query(f"question {i}")
 
     assert len(provider._cache) <= EMBED_CACHE_MAXSIZE
+
+
+# --- batching, so a rate-limited retry stays cheap -------------------------
+
+
+def test_documents_are_sent_in_batches_of_the_providers_maximum(embeddings):
+    provider, client = embeddings
+    client.embed_documents.side_effect = lambda batch: [[float(len(t))] for t in batch]
+
+    provider.embed_documents([f"text {i}" for i in range(250)])
+
+    sizes = [len(call.args[0]) for call in client.embed_documents.call_args_list]
+    assert sizes == [EMBED_BATCH_SIZE, EMBED_BATCH_SIZE, 50]
+
+
+def test_a_rate_limited_batch_is_retried_alone(embeddings):
+    """The whole call used to be wrapped in one retry, so a 429 on a later batch
+    re-sent every text already embedded before it — twice, then failed."""
+    provider, client = embeddings
+    calls: list[int] = []
+
+    def embed(batch):
+        calls.append(len(batch))
+        # fail once, on the second batch only
+        if len(calls) == 2:
+            raise RuntimeError("429 RESOURCE_EXHAUSTED")
+        return [[1.0] for _ in batch]
+
+    client.embed_documents.side_effect = embed
+
+    with patch("app.infrastructure.embeddings.gemini.time.sleep"):
+        result = provider.embed_documents([f"text {i}" for i in range(150)])
+
+    assert len(result) == 150
+    # First batch sent once, second batch sent twice — not the first again.
+    assert calls == [EMBED_BATCH_SIZE, 50, 50]
+
+
+def test_work_done_before_a_failure_is_not_thrown_away(embeddings):
+    """A hard failure part-way through still leaves the earlier batches cached,
+    so a retry of the request does not pay for them again."""
+    provider, client = embeddings
+    calls = {"n": 0}
+
+    def embed(batch):
+        calls["n"] += 1
+        if calls["n"] > 1:
+            raise RuntimeError("some permanent error")
+        return [[1.0] for _ in batch]
+
+    client.embed_documents.side_effect = embed
+    texts = [f"text {i}" for i in range(150)]
+
+    with pytest.raises(RuntimeError):
+        provider.embed_documents(texts)
+
+    # The first hundred are cached; asking for them alone makes no new call.
+    calls["n"] = 0
+    client.embed_documents.side_effect = lambda batch: [[1.0] for _ in batch]
+    provider.embed_documents(texts[:100])
+    assert calls["n"] == 0
+
+
+def test_a_cached_batch_is_not_re_sent(embeddings):
+    provider, client = embeddings
+    client.embed_documents.side_effect = lambda batch: [[1.0] for _ in batch]
+    texts = [f"text {i}" for i in range(150)]
+
+    provider.embed_documents(texts)
+    client.embed_documents.reset_mock()
+    provider.embed_documents(texts)
+
+    client.embed_documents.assert_not_called()

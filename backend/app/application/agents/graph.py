@@ -6,6 +6,7 @@ from app.application.agents.constants import (
     NODE_GENERATE_CLAIMS,
     NODE_GRADE_ANSWER,
     NODE_GRADE_RELEVANCE,
+    NODE_PLAN_SEARCHES,
     NODE_REFINE_QUERY,
     NODE_RETRIEVE_AND_CHUNK,
     NODE_SEARCH,
@@ -18,6 +19,7 @@ from app.application.agents.nodes import (
     generate_claims_node,
     grade_answer_node,
     grade_relevance_node,
+    plan_searches_node,
     refine_query_node,
     retrieve_and_chunk_node,
     search_node,
@@ -47,6 +49,7 @@ def build_research_graph(
 
     graph = StateGraph(ResearchState)
 
+    graph.add_node(NODE_PLAN_SEARCHES, partial(plan_searches_node, llm=llm))
     graph.add_node(NODE_SEARCH, partial(search_node, search_provider=search_provider))
     graph.add_node(
         NODE_RETRIEVE_AND_CHUNK,
@@ -62,7 +65,8 @@ def build_research_graph(
     graph.add_node(NODE_GRADE_ANSWER, partial(grade_answer_node, llm=llm))
     graph.add_node(NODE_REFINE_QUERY, partial(refine_query_node, llm=llm))
 
-    graph.add_edge(START, NODE_SEARCH)
+    graph.add_edge(START, NODE_PLAN_SEARCHES)
+    graph.add_edge(NODE_PLAN_SEARCHES, NODE_SEARCH)
     graph.add_edge(NODE_SEARCH, NODE_RETRIEVE_AND_CHUNK)
     graph.add_edge(NODE_RETRIEVE_AND_CHUNK, NODE_SELECT_CHUNKS)
     graph.add_edge(NODE_SELECT_CHUNKS, NODE_GRADE_RELEVANCE)
@@ -75,6 +79,8 @@ def build_research_graph(
         should_refine,
         {ROUTE_END: END, ROUTE_REFINE: NODE_REFINE_QUERY},
     )
-    graph.add_edge(NODE_REFINE_QUERY, NODE_SEARCH)
+    # Back to planning, not straight to search: the rewritten query deserves the
+    # same spread of sub-queries as the original did.
+    graph.add_edge(NODE_REFINE_QUERY, NODE_PLAN_SEARCHES)
 
     return graph.compile()

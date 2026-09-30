@@ -16,9 +16,18 @@ def short_host(url: str) -> str:
     return host[4:] if host.startswith("www.") else host or url
 
 
+# English adds -es, not -s, after a sibilant: "searches", not "searchs".
+_SIBILANT_ENDINGS = ("s", "x", "z", "ch", "sh")
+
+
 def count(n: int, noun: str, plural: str | None = None) -> str:
     """"1 passage" / "4 passages" — these strings are read by a person."""
-    return f"{n} {noun if n == 1 else plural or noun + 's'}"
+    if n == 1:
+        return f"{n} {noun}"
+    if plural:
+        return f"{n} {plural}"
+    suffix = "es" if noun.endswith(_SIBILANT_ENDINGS) else "s"
+    return f"{n} {noun}{suffix}"
 
 
 def _stream_writer():

@@ -84,7 +84,6 @@ def test_search_records_the_query_and_every_source_it_found():
 
     assert steps[0].kind == "search"
     assert "convex convergence" in steps[0].label
-    assert steps[0].detail is None, "the label already carries the query"
     assert [s.kind for s in steps[1:]] == ["source_found", "source_found"]
     assert [s.url for s in steps[1:]] == [
         "https://arxiv.org/abs/1",

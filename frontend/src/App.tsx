@@ -3,7 +3,7 @@ import { streamQuestion } from "./api/research";
 import type { ActivityStep, Answer } from "./types/answer";
 import { ActivityLog } from "./components/ActivityLog";
 import { ClaimText } from "./components/ClaimText";
-import { MathText } from "./components/MathText";
+import { Prose } from "./components/Prose";
 import { buildCitationNumbers } from "./utils/citations";
 
 function App() {
@@ -58,6 +58,10 @@ function App() {
   };
 
   const citationNumbers = answer ? buildCitationNumbers(answer) : new Map();
+  // Distinct themes in the order they appear, so each section can be numbered.
+  const themeOrder = answer
+    ? [...new Set(answer.claims.map((c) => c.theme).filter(Boolean))]
+    : [];
 
   return (
     <div
@@ -199,18 +203,47 @@ function App() {
                     lineHeight: 1.6,
                   }}
                 >
-                  <MathText text={answer.summary} />
+                  <Prose text={answer.summary} />
                 </p>
               )}
 
-              {answer.claims.map((claim, i) => (
-                <ClaimText
-                  key={i}
-                  claim={claim}
-                  evidence={answer.evidence}
-                  citationNumbers={citationNumbers}
-                />
-              ))}
+              {answer.claims.map((claim, i) => {
+                // A subheading appears where the theme changes, which turns a
+                // flat list of claims into the shape of the field. Claims
+                // sharing a theme arrive adjacent, so comparing with the
+                // previous one is enough — no regrouping, and the model's
+                // ordering is preserved.
+                const startsTheme =
+                  claim.theme !== "" && claim.theme !== answer.claims[i - 1]?.theme;
+
+                return (
+                  <div key={i}>
+                    {startsTheme && (
+                      <h3
+                        style={{
+                          fontSize: 18,
+                          fontWeight: 650,
+                          lineHeight: 1.35,
+                          color: "var(--color-text)",
+                          margin: i === 0 ? "0 0 10px" : "28px 0 10px",
+                        }}
+                      >
+                        {/* A real space, not a margin: the heading has to read
+                            "1. Error rates" when copied, not "1.Error rates". */}
+                        <span style={{ color: "var(--color-text-muted)" }}>
+                          {themeOrder.indexOf(claim.theme) + 1}.
+                        </span>{" "}
+                        {claim.theme}
+                      </h3>
+                    )}
+                    <ClaimText
+                      claim={claim}
+                      evidence={answer.evidence}
+                      citationNumbers={citationNumbers}
+                    />
+                  </div>
+                );
+              })}
 
               {answer.conclusion && (
                 <div
@@ -232,9 +265,9 @@ function App() {
                   >
                     Conclusion
                   </div>
-                  <p style={{ fontSize: 16, lineHeight: 1.7, margin: 0 }}>
-                    <MathText text={answer.conclusion} />
-                  </p>
+                  <div style={{ fontSize: 16 }}>
+                    <Prose text={answer.conclusion} />
+                  </div>
                 </div>
               )}
             </>

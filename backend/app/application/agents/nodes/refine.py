@@ -2,6 +2,7 @@ import logging
 
 from app.application.agents.activity import ActivityRecorder
 from app.application.agents.state import ResearchState
+from app.core.exceptions import UpstreamServiceError
 from app.ports.llm import LLMProvider
 
 logger = logging.getLogger(__name__)
@@ -12,6 +13,8 @@ def refine_query_node(state: ResearchState, llm: LLMProvider) -> dict:
 
     try:
         new_query = llm.refine_query(state["question"], state["search_query"])
+    except UpstreamServiceError:
+        raise
     except Exception:
         logger.warning("Failed to refine query, keeping previous query", exc_info=True)
         new_query = state["search_query"]
