@@ -6,7 +6,11 @@ from app.application.agents.state import ResearchState
 from app.core.exceptions import UpstreamServiceError
 from app.domain.answers import ClaimsResponse
 from app.domain.text.cleanup import find_evidence_id_leak, strip_evidence_ids
-from app.domain.text.equations import plain_text_equations
+from app.domain.text.equations import (
+    display_equations,
+    plain_text_equations,
+    states_an_equation,
+)
 from app.domain.text.headings import tidy_theme
 from app.domain.text.latex import has_damaged_maths, restore_latex
 from app.ports.llm import LLMProvider
@@ -67,13 +71,15 @@ class _Attempt:
     damaged: bool
     # Equations written as ordinary characters rather than set as mathematics.
     plain: list[str]
+    # The passages state equations and the answer states none.
+    omitted: bool
 
     @property
     def flaws(self) -> int:
-        return bool(self.leak) * 100 + self.damaged * 10 + len(self.plain)
+        return bool(self.leak) * 100 + self.damaged * 10 + self.omitted * 5 + len(self.plain)
 
 
-def _examine(raw: ClaimsResponse) -> _Attempt:
+def _examine(raw: ClaimsResponse, stated: int) -> _Attempt:
     result = _presented(raw)
     return _Attempt(
         result=result,
@@ -82,6 +88,10 @@ def _examine(raw: ClaimsResponse) -> _Attempt:
         # formula that lost its Ω is indistinguishable from one that never had it.
         damaged=any(has_damaged_maths(t) for t in _texts(raw)),
         plain=[eq for t in _texts(result) for eq in plain_text_equations(t)],
+        # Deliberately coarse. Which of the passages' equations is the one that
+        # matters is a judgement; an answer with no equation at all, written
+        # from passages that set several, is not.
+        omitted=stated > 0 and not any(states_an_equation(t) for t in _texts(result)),
     )
 
 
@@ -92,6 +102,9 @@ def generate_claims_node(state: ResearchState, llm: LLMProvider) -> dict:
 
     recorder = ActivityRecorder(attempt=state.get("retry_count", 0))
     attempts: list[_Attempt] = []
+    # Equations a passage sets on a line of their own, as a page sets the ones
+    # it is about. They are facts of the evidence like any other.
+    stated = sum(len(display_equations(c.text)) for c in state["selected_chunks"])
 
     for number in range(1, MAX_GENERATION_ATTEMPTS + 1):
         try:
@@ -106,7 +119,7 @@ def generate_claims_node(state: ResearchState, llm: LLMProvider) -> dict:
             recorder.record("generate", "Could not write an answer from the passages")
             return empty | {"activity": recorder.steps}
 
-        attempt = _examine(raw)
+        attempt = _examine(raw, stated)
         attempts.append(attempt)
         if not attempt.flaws:
             break
@@ -123,6 +136,12 @@ def generate_claims_node(state: ResearchState, llm: LLMProvider) -> dict:
                 "A formula arrived damaged beyond repair (attempt %d/%d): the model "
                 "wrote LaTeX with backslashes and JSON decoded them",
                 number, MAX_GENERATION_ATTEMPTS,
+            )
+        if attempt.omitted:
+            logger.warning(
+                "The passages state %d equation(s) and the answer states none "
+                "(attempt %d/%d)",
+                stated, number, MAX_GENERATION_ATTEMPTS,
             )
         if attempt.plain:
             logger.warning(
@@ -150,6 +169,13 @@ def generate_claims_node(state: ResearchState, llm: LLMProvider) -> dict:
         # answer. But the reader is told, because a formula missing a symbol
         # reads as a different formula.
         detail += "; a formula may be missing a symbol the model's output lost"
+    if best.omitted:
+        # Said out loud: a formula the sources give and the answer lacks must
+        # not go missing silently.
+        detail += (
+            f"; the passages state {count(stated, 'equation')} "
+            "and the answer gives none"
+        )
 
     recorder.record(
         "generate",

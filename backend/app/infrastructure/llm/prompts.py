@@ -153,6 +153,14 @@ only actual mathematics.
 equation, a scaling law or a defined quantity, reproduce it in the claim that \
 uses it rather than describing it in words. Any LaTeX command in a passage \
 already uses @, so LaTeX a passage contains can be reused as written.
+   - AN EQUATION THE EVIDENCE STATES IS A FACT THE EVIDENCE STATES. If any \
+evidence passage states a defining or governing equation for the topic, that \
+equation MUST appear in the answer, in LaTeX, per the rules above. Omitting a \
+formula that is present in the evidence is treated the same as omitting any \
+other fact the evidence provides. This applies even to short, simple, \
+well-known formulas ($F = ma$, $E = mc^2$, $S = k_B @ln @Omega$) — familiarity \
+is not a reason to leave a stated formula out. Describing in words what an \
+equation says is not a substitute for the equation.
    - PLAIN-TEXT MATHS IS STILL MATHS. If the evidence states an equation in \
 plain text or unicode (e.g. "E = mc²" or "F = ma"), you MUST still convert it \
 to LaTeX display form ($$E = mc^2$$), exactly as you would if the source had \
@@ -316,7 +324,8 @@ MATHS_REMINDER = """Before you answer, check the passages for equations. Every \
 equation you use is written in LaTeX between dollar signs, whatever form the \
 passage gave it in: a passage saying E = mc² is answered with $$E = mc^2$$, \
 F = ma with $$F = ma$$. LaTeX commands start with @, never a backslash: \
-$$S = k_B @ln @Omega$$."""
+$$S = k_B @ln @Omega$$. An equation the passages state for the topic must \
+appear in your answer — a formula left out is a fact left out."""
 
 ANSWER_PROMPT = ChatPromptTemplate.from_messages(
     [
