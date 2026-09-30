@@ -293,3 +293,18 @@ def test_a_name_that_survived_behind_the_escape_is_recognised(eaten, command):
 def test_an_escape_with_nothing_recognisable_behind_it_is_damage():
     assert has_damaged_maths("the number of microstates ($\x0c$)")
     assert has_damaged_maths("$$\x0c S \x0c 0$$")
+
+
+def test_a_command_the_list_does_not_know_is_still_put_back():
+    # From a live answer on entropy: both attempts arrived like this, and the
+    # reader would have seen "riangle S".
+    assert restore_latex("$$\triangle S = @frac{q_{rev}}{T}$$") == (
+        "$$\\triangle S = \\frac{q_{rev}}{T}$$"
+    )
+    assert restore_latex("$@Delta S \textgreater 0$") == "$\\Delta S \\textgreater 0$"
+    assert not has_damaged_maths("$$\triangle S_{total} @geq 0$$")
+
+
+def test_a_newline_before_an_unknown_word_is_not_turned_into_a_command():
+    text = "$$\nx = y\n$$"
+    assert restore_latex(text) == text

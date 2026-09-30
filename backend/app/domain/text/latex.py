@@ -110,6 +110,12 @@ def _repair(span: str) -> str:
         # One stray letter between the escape and an intact name: "\x08aOmega".
         if letters[1:] in _COMMANDS:
             return "\\" + letters[1:]
+        # A tab, form feed, backspace or carriage return has no business in a
+        # formula, so before letters it is an eaten command whether or not the
+        # list knows it: "\triangle", "\textgreater". A newline does belong
+        # in display maths, so it is only ever a command the list recognises.
+        if control in _EATEN and control != "\n":
+            return "\\" + eaten
         return match.group()
 
     return _CONTROL_THEN_LETTERS.sub(put_back, span)
