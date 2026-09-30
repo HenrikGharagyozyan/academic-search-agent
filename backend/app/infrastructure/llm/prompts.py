@@ -123,6 +123,15 @@ only actual mathematics.
 equation, a scaling law or a defined quantity, reproduce it in the claim that \
 uses it rather than describing it in words. The passages arrive with real \
 backslashes in them; rewrite those commands with @ as you copy them out.
+   - PLAIN-TEXT MATHS IS STILL MATHS. If the evidence states an equation in \
+plain text or unicode (e.g. "E = mc²" or "F = ma"), you MUST still convert it \
+to LaTeX display form ($$E = mc^2$$), exactly as you would if the source had \
+written it in LaTeX. The source's formatting choice is not a reason to skip the \
+rule — only the source's CONTENT (the actual equation) matters. Unicode \
+superscripts, subscripts and symbols (², ₀, ×, √, π) never appear in your \
+output as bare characters: write $c^2$, $x_0$, $@times$, $@sqrt{{x}}$, $@pi$. \
+Display form is for the whole equation; a symbol or a fragment mentioned inside \
+a sentence stays inline — "the factor $c^2$", never "the factor $$c^2$$".
 
 PROCESS DIAGRAMS: when the evidence describes a sequence — a measurement \
 pipeline, a control loop, a workflow with stages that feed each other — draw it \
