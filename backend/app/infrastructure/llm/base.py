@@ -16,6 +16,7 @@ from app.domain.answers import Claim, ClaimsResponse
 from app.domain.documents import Chunk
 from app.domain.grading import AnswerQualityGrade, RelevanceGrade
 from app.domain.query import QueryPlan
+from app.domain.text.latex import to_channel_notation
 from app.infrastructure.llm.prompts import (
     ANSWER_PROMPT,
     ANSWER_QUALITY_PROMPT,
@@ -91,6 +92,12 @@ class LangChainLLMProvider:
     def _as_block(chunks: Sequence[Chunk], label: str) -> str:
         return "\n\n".join(f"[{label}: {c.chunk_id}]\n{c.text}" for c in chunks)
 
+    @classmethod
+    def _as_evidence(cls, chunks: Sequence[Chunk]) -> str:
+        # In @ notation, because the model copies the notation it reads: shown
+        # backslashes, it wrote backslashes, and JSON ate them.
+        return to_channel_notation(cls._as_block(chunks, "evidence_id"))
+
     @_billing_surfaces
     @llm_retry
     def plan_searches(self, question: str, count: int, recent: bool) -> QueryPlan:
@@ -109,7 +116,7 @@ class LangChainLLMProvider:
     @llm_retry
     def generate_answer(self, question: str, evidence: Sequence[Chunk]) -> ClaimsResponse:
         prompt = ANSWER_PROMPT.invoke(
-            {"question": question, "evidence_block": self._as_block(evidence, "evidence_id")}
+            {"question": question, "evidence_block": self._as_evidence(evidence)}
         )
         return self._answer_llm.invoke(prompt)
 
