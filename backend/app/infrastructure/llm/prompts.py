@@ -18,6 +18,25 @@ different emphasis, and cite all relevant evidence_ids together.
    - Cover the topic from multiple angles when the evidence allows it (e.g. \
 definition, mechanism, variants, trade-offs, open questions) rather than a \
 single flat description.
+   - FIRST DECIDE THE SHAPE OF THE ANSWER. A survey question ("latest research \
+on X", "what are the challenges in X", "compare X and Y") genuinely has \
+multiple independent aspects and deserves multiple themed sections. A direct \
+factual question ("what is X", "what does formula Y mean") usually has ONE core \
+answer with supporting detail — write it as ONE claim with no theme (prose, not \
+sections), even if the evidence happens to come from several sources restating \
+the same core fact from different angles. Splitting a single fact into multiple \
+sections to fill space is the same error as merging distinct facts into one \
+section: both hide the actual shape of the answer. Before writing themes, ask: \
+are these truly N different things, or one thing described N times? If it is \
+one thing, write one claim. The rules below about themes and sections apply to \
+the survey case; they are not a reason to turn a direct question into a survey.
+     · Record the decision in `answer_shape` — "direct" or "survey" — and then \
+write the answer that decision calls for.
+     · When `answer_shape` is "direct": leave every `theme` empty and write \
+ONE claim. Write a second only when the question itself asks two separate \
+things ("what is X, and what about Y") — one claim per thing asked, never one \
+per source. Background, history and applications that were not asked about \
+belong inside that claim as supporting detail, or nowhere.
    - GROUP BY DIRECTION. Give each claim a short `theme` naming the aspect it \
 belongs to — two to five words, the wording a specialist would use, e.g. \
 "Physical qubit overhead", "Real-time decoding", "Magic-state distillation". \
@@ -39,7 +58,10 @@ throws away the work of finding them, and a reader looking for the shape of a \
 field is worse served by three broad claims than by nine specific ones.
    - Two passages restating the same fact are one claim. Two passages about \
 different problems are two claims, even when both are problems with the same \
-thing.
+thing. Check your own themes for this before you finish: two claims headed \
+"Einstein's mass-energy equivalence" and "Mass-energy equivalence principle" \
+cover one fact under two wordings. That is not the theme found twice — it is \
+one claim that should have been written once, citing both passages.
    - Do not flatten distinct work into one claim to make it look like \
 consensus. Two papers solving the same problem differently are two claims \
 under two themes, and saying so is more useful than averaging them.
@@ -110,6 +132,14 @@ not a casual explainer.
 MATHEMATICAL NOTATION: every mathematical expression — equations, symbols, \
 variables, operators — MUST be wrapped in LaTeX delimiters so the interface can \
 render it. This applies in the summary, in every claim, and in the conclusion.
+   - WRITE EVERY LATEX COMMAND WITH @, NEVER WITH A BACKSLASH: @frac, @ln, \
+@Omega, @text, @times, @Delta. This comes first because it is the rule that \
+fails silently. Your output travels as a JSON string, where a backslash starts \
+an escape: a backslash before "text" arrives as a tab followed by "ext", before \
+"frac" as a form feed followed by "rac", and the formula reaches the reader as \
+"k_B ext{{ln}}" or loses its Ω altogether. The passages below are already \
+written with @ for the same reason. Write $S = k_B @ln @Omega$, \
+$$a = @frac{{F}}{{m}}$$, $@Delta S @geq 0$.
    - A defining or governing equation is set on its own line as display math, \
 $$...$$, the way a textbook sets it. Do this for the central equation of the \
 topic and for each major equation the evidence states.
@@ -121,8 +151,25 @@ topic and for each major equation the evidence states.
 only actual mathematics.
    - CARRY THE EVIDENCE'S MATHS ACROSS. When a passage states a governing \
 equation, a scaling law or a defined quantity, reproduce it in the claim that \
-uses it rather than describing it in words. The passages arrive with real \
-backslashes in them; rewrite those commands with @ as you copy them out.
+uses it rather than describing it in words. Any LaTeX command in a passage \
+already uses @, so LaTeX a passage contains can be reused as written.
+   - AN EQUATION THE EVIDENCE STATES IS A FACT THE EVIDENCE STATES. If any \
+evidence passage states a defining or governing equation for the topic, that \
+equation MUST appear in the answer, in LaTeX, per the rules above. Omitting a \
+formula that is present in the evidence is treated the same as omitting any \
+other fact the evidence provides. This applies even to short, simple, \
+well-known formulas ($F = ma$, $E = mc^2$, $S = k_B @ln @Omega$) — familiarity \
+is not a reason to leave a stated formula out. Describing in words what an \
+equation says is not a substitute for the equation.
+   - PLAIN-TEXT MATHS IS STILL MATHS. If the evidence states an equation in \
+plain text or unicode (e.g. "E = mc²" or "F = ma"), you MUST still convert it \
+to LaTeX display form ($$E = mc^2$$), exactly as you would if the source had \
+written it in LaTeX. The source's formatting choice is not a reason to skip the \
+rule — only the source's CONTENT (the actual equation) matters. Unicode \
+superscripts, subscripts and symbols (², ₀, ×, √, π) never appear in your \
+output as bare characters: write $c^2$, $x_0$, $@times$, $@sqrt{{x}}$, $@pi$. \
+Display form is for the whole equation; a symbol or a fragment mentioned inside \
+a sentence stays inline — "the factor $c^2$", never "the factor $$c^2$$".
 
 PROCESS DIAGRAMS: when the evidence describes a sequence — a measurement \
 pipeline, a control loop, a workflow with stages that feed each other — draw it \
@@ -179,6 +226,11 @@ Produce {query_count} search queries. Rules:
      same problem, a review of that exact topic.
    - Add specialist vocabulary alongside the user's terms, not instead of them.
      If a specialist calls it something else, search for both.
+   - NAME THE FIELD'S OWN TERMS. A specialist does not search for "techniques",
+     "recent advances" or "analysis of" — those words find textbooks and listicles.
+     They search for the methods by name. At least two queries must pair the
+     question's terms with a named method, tool, benchmark or result of that
+     subfield, the ones its own papers put in their titles.
    - Do not paraphrase. "transmission matrix engineering" and "engineering the
      transmission matrix" are the same query and waste a slot.
    - Each query is a search box query: keywords and phrases, no questions, no
@@ -200,6 +252,16 @@ For the question "how do diffusion models avoid mode collapse":
    GOOD — classifier-free guidance diversity trade-off
    BAD  — generative adversarial network mode collapse (a different model family)
    BAD  — probability theory of stochastic processes    (the parent field)
+
+For the question "latest research on mechanistic interpretability of transformers":
+   GOOD — mechanistic interpretability transformers circuit tracing 2025
+   GOOD — mechanistic interpretability attribution graphs cross-layer transcoder
+   GOOD — sparse autoencoder features transformer interpretability circuits
+   BAD  — transformer model interpretability techniques   (generic: finds
+          explainability toolkits and relevance propagation, a different area)
+   BAD  — mechanistic analysis of transformer architectures recent advances
+          (drops "interpretability", names no method, finds surveys of the
+          architecture)
 
 Return the queries in order of how central they are to the question."""
 
@@ -268,10 +330,25 @@ satisfactory if:
 
 Otherwise, be lenient with partial but genuinely informative answers."""
 
+# Said again after the evidence, because that is where it is acted on. The same
+# rules in the system prompt were followed for about six answers in ten on a
+# passage stating "E = mc²"; moving them to the top of their section changed
+# nothing, and repeating them here, as the last thing read before writing, took
+# a live comparison from 16 of 18 equations typeset to 18 of 18.
+MATHS_REMINDER = """Before you answer, check the passages for equations. Every \
+equation you use is written in LaTeX between dollar signs, whatever form the \
+passage gave it in: a passage saying E = mc² is answered with $$E = mc^2$$, \
+F = ma with $$F = ma$$. LaTeX commands start with @, never a backslash: \
+$$S = k_B @ln @Omega$$. An equation the passages state for the topic must \
+appear in your answer — a formula left out is a fact left out."""
+
 ANSWER_PROMPT = ChatPromptTemplate.from_messages(
     [
         ("system", SYSTEM_PROMPT),
-        ("human", "Question: {question}\n\nEvidence:\n{evidence_block}"),
+        (
+            "human",
+            "Question: {question}\n\nEvidence:\n{evidence_block}\n\n" + MATHS_REMINDER,
+        ),
     ]
 )
 

@@ -5,6 +5,7 @@ import chromadb
 
 from app.infrastructure.embeddings.gemini import GeminiEmbeddingsProvider
 from app.domain.documents import Chunk
+from app.domain.text.lexical import rank_by_terms
 from app.ports.embeddings import EmbeddingsProvider
 
 logger = logging.getLogger(__name__)
@@ -24,12 +25,17 @@ class ChromaVectorStore:
         try:
             return self._select_by_similarity(question, chunks, top_k)
         except Exception:
+            # Not rare: the free embedding quota covers about one question a
+            # day. Ranking by the question's words keeps the selection about
+            # the question; taking the first passages did not look at it at all.
             logger.warning(
-                "Embedding/vector search failed, falling back to first %d chunks",
-                top_k,
+                "Embedding/vector search failed, ranking %d chunks by the "
+                "question's terms instead",
+                len(chunks),
                 exc_info=True,
             )
-            return chunks[:top_k]
+            order = rank_by_terms(question, [c.text for c in chunks])
+            return [chunks[i] for i in order[:top_k]]
 
     def _select_by_similarity(
         self, question: str, chunks: list[Chunk], top_k: int

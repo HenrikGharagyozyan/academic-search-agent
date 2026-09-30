@@ -20,8 +20,10 @@ def test_leaves_at_sign_outside_math_alone():
 
 def test_strips_control_characters_left_by_mangled_escapes():
     # \x0b is what Gemini collapses \mu\nu into in structured output.
+    # A lone control character is unrecoverable and goes; a tab in front of
+    # letters is what JSON made of "\\t", and the command comes back.
     text = "The tensor $R_{\x0b}$ and $\tilde{x}$ survive as renderable text."
-    assert restore_latex(text) == "The tensor $R_{}$ and $ilde{x}$ survive as renderable text."
+    assert restore_latex(text) == "The tensor $R_{}$ and $\\tilde{x}$ survive as renderable text."
 
 
 def test_keeps_newlines_in_prose():

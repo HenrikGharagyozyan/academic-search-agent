@@ -7,6 +7,7 @@ from app.application.agents.state import ResearchState
 from app.domain.documents import Chunk
 from app.domain.search import SearchResult
 from app.domain.text.chunker import chunk_lines, deduplicate_chunks
+from app.domain.text.maths import collapse_wiki_maths
 from app.domain.text.plain import to_label
 from app.domain.text.similarity import find_mirrors
 from app.domain.text.splitter import split_into_lines
@@ -37,7 +38,9 @@ def _scrape_and_chunk(
 
     return chunk_lines(
         document_id=result.url,
-        lines=split_into_lines(page.markdown),
+        # Before the page is cut up: a formula split across two chunks can no
+        # longer be recognised as one.
+        lines=split_into_lines(collapse_wiki_maths(page.markdown)),
         source_url=page.url,
         title=page.title or result.title,
     )

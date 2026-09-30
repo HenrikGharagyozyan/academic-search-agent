@@ -115,8 +115,9 @@ def test_the_prompt_asks_for_equations_in_the_evidence_to_be_reproduced():
 
 
 def test_equations_in_a_scraped_page_survive_into_the_evidence():
-    """Nothing between the scrape and the prompt touches the passage text, and
-    this pins that: the LaTeX helpers run on the model's output, not its input."""
+    """Nothing between the scrape and the prompt drops a passage's maths, and
+    this pins that. The passage itself keeps its backslashes; only the copy shown
+    to the model is rewritten with @, when the prompt is built."""
     from app.domain.text.chunker import chunk_lines
     from app.domain.text.splitter import split_into_lines
 

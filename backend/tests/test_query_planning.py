@@ -19,6 +19,7 @@ from app.application.agents.constants import (
 )
 from app.application.agents.nodes import plan_searches_node, search_node
 from app.core.exceptions import UpstreamServiceError
+from app.infrastructure.llm.prompts import EXPANSION_SYSTEM_PROMPT
 from app.domain.query import QueryPlan, anchor_terms, has_recency_intent, stays_on_topic
 from app.domain.search import SearchResult
 
@@ -343,8 +344,54 @@ def test_the_judge_is_no_longer_told_to_be_strict_for_its_own_sake():
 
 
 def test_the_expansion_prompt_shows_what_drift_looks_like():
-    from app.infrastructure.llm.prompts import EXPANSION_SYSTEM_PROMPT
-
     assert "STAY IN THE SUBJECT" in EXPANSION_SYSTEM_PROMPT
     # The examples name the exact failure that was reported.
     assert "BAD  — inverse scattering theory" in EXPANSION_SYSTEM_PROMPT
+
+
+# --- a narrow field: the planner has to name its methods --------------------
+#
+# "Latest research on mechanistic interpretability of transformers" returned no
+# article from transformer-circuits.pub. The search engine was not the reason:
+# it ranks that site first for "mechanistic interpretability transformers
+# circuit tracing 2025". The planner never asked. Its queries were
+# "transformer model interpretability techniques" and "mechanistic analysis of
+# transformer architectures recent advances", which find relevance propagation
+# and surveys of the architecture.
+
+MI_QUESTION = "Latest research on mechanistic interpretability of transformers 2025-2026"
+
+
+def test_a_plural_in_the_question_matches_a_singular_in_the_query():
+    # This query was discarded as off-topic for saying "transformer" where the
+    # question says "transformers", which left the run with one fewer search.
+    anchors = anchor_terms(MI_QUESTION)
+
+    assert stays_on_topic("sparse autoencoder features transformer circuits interpretability", anchors)
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "mechanistic interpretability transformers circuit tracing 2025",
+        "mechanistic interpretability attribution graphs cross-layer transcoder",
+        "sparse autoencoder features transformer interpretability circuits",
+    ],
+)
+def test_the_prompts_own_good_examples_pass_the_filter(query):
+    # An example the prompt recommends and the code then discards teaches the
+    # planner to write queries that are never run.
+    assert query in EXPANSION_SYSTEM_PROMPT
+    assert stays_on_topic(query, anchor_terms(MI_QUESTION))
+
+
+def test_a_query_that_drops_the_subject_is_still_discarded():
+    anchors = anchor_terms(MI_QUESTION)
+
+    assert not stays_on_topic("attribution graphs cross-layer transcoder", anchors)
+    assert not stays_on_topic("transformer architectures recent advances", anchors)
+
+
+def test_the_planner_is_told_to_name_the_fields_methods():
+    assert "NAME THE FIELD'S OWN TERMS" in EXPANSION_SYSTEM_PROMPT
+    assert "At least two queries" in EXPANSION_SYSTEM_PROMPT

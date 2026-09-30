@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 from app.domain.activity import ActivityStep
 
 Confidence = Literal["high", "medium", "low"]
+AnswerShape = Literal["direct", "survey"]
 
 
 class Claim(BaseModel):
@@ -23,6 +24,20 @@ class Claim(BaseModel):
 class ClaimsResponse(BaseModel):
     """What the model is asked to return — before any verification."""
 
+    # Declared first so it is written first: the model commits to what kind of
+    # question this is before it writes a claim. As a paragraph of the prompt
+    # the same decision was ignored — "what is energy" still came back as five
+    # numbered sections — because nothing made the model take it.
+    answer_shape: AnswerShape = Field(
+        default="survey",
+        description=(
+            "Decide this FIRST, before writing anything else. "
+            "'direct': the question asks what something is, what a formula means, "
+            "or for one fact — there is one core answer. "
+            "'survey': the question asks about research, challenges, approaches or "
+            "a comparison — there are several independent aspects."
+        ),
+    )
     summary: str
     claims: list[Claim]
     conclusion: str
