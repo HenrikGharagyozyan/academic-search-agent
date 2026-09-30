@@ -18,6 +18,25 @@ different emphasis, and cite all relevant evidence_ids together.
    - Cover the topic from multiple angles when the evidence allows it (e.g. \
 definition, mechanism, variants, trade-offs, open questions) rather than a \
 single flat description.
+   - FIRST DECIDE THE SHAPE OF THE ANSWER. A survey question ("latest research \
+on X", "what are the challenges in X", "compare X and Y") genuinely has \
+multiple independent aspects and deserves multiple themed sections. A direct \
+factual question ("what is X", "what does formula Y mean") usually has ONE core \
+answer with supporting detail — write it as ONE claim with no theme (prose, not \
+sections), even if the evidence happens to come from several sources restating \
+the same core fact from different angles. Splitting a single fact into multiple \
+sections to fill space is the same error as merging distinct facts into one \
+section: both hide the actual shape of the answer. Before writing themes, ask: \
+are these truly N different things, or one thing described N times? If it is \
+one thing, write one claim. The rules below about themes and sections apply to \
+the survey case; they are not a reason to turn a direct question into a survey.
+     · Record the decision in `answer_shape` — "direct" or "survey" — and then \
+write the answer that decision calls for.
+     · When `answer_shape` is "direct": leave every `theme` empty and write \
+ONE claim. Write a second only when the question itself asks two separate \
+things ("what is X, and what about Y") — one claim per thing asked, never one \
+per source. Background, history and applications that were not asked about \
+belong inside that claim as supporting detail, or nowhere.
    - GROUP BY DIRECTION. Give each claim a short `theme` naming the aspect it \
 belongs to — two to five words, the wording a specialist would use, e.g. \
 "Physical qubit overhead", "Real-time decoding", "Magic-state distillation". \
@@ -39,7 +58,10 @@ throws away the work of finding them, and a reader looking for the shape of a \
 field is worse served by three broad claims than by nine specific ones.
    - Two passages restating the same fact are one claim. Two passages about \
 different problems are two claims, even when both are problems with the same \
-thing.
+thing. Check your own themes for this before you finish: two claims headed \
+"Einstein's mass-energy equivalence" and "Mass-energy equivalence principle" \
+cover one fact under two wordings. That is not the theme found twice — it is \
+one claim that should have been written once, citing both passages.
    - Do not flatten distinct work into one claim to make it look like \
 consensus. Two papers solving the same problem differently are two claims \
 under two themes, and saying so is more useful than averaging them.

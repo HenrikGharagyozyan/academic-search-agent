@@ -23,12 +23,18 @@ def _presentable(text: str) -> str:
 
 
 def _presented(result: ClaimsResponse) -> ClaimsResponse:
+    # A direct answer has no sections. The model is told so; this holds it to
+    # its own decision, so "what is X" cannot arrive as a numbered survey.
+    themed = result.answer_shape == "survey"
     return result.model_copy(
         update={
             "summary": _presentable(result.summary),
             "claims": [
                 claim.model_copy(
-                    update={"text": _presentable(claim.text), "theme": tidy_theme(claim.theme)}
+                    update={
+                        "text": _presentable(claim.text),
+                        "theme": tidy_theme(claim.theme) if themed else "",
+                    }
                 )
                 for claim in result.claims
             ],
@@ -84,6 +90,7 @@ def generate_claims_node(state: ResearchState, llm: LLMProvider) -> dict:
     recorder.record(
         "generate",
         f"Wrote {count(len(result.claims), 'claim')} from {count(len(state['selected_chunks']), 'passage')}",
+        detail=f"answered as a {result.answer_shape} question",
     )
 
     return {
