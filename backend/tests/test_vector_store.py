@@ -48,5 +48,23 @@ def test_select_relevant_chunks_falls_back_on_embedding_failure():
 
     result = store.select_relevant_chunks("query", chunks, top_k=1)
 
-    assert len(result) == 1
-    assert result[0].chunk_id == "c1"  # first chunk as fallback
+    # Nothing here matches the question, so page order is all there is.
+    assert [c.chunk_id for c in result] == ["c1"]
+
+
+def test_the_fallback_ranks_by_the_question_instead_of_by_position():
+    """The first passages of a page are its title and navigation. When the
+    embedding quota is spent the selection must still be about the question."""
+    mock_embeddings = MagicMock()
+    mock_embeddings.embed_documents.side_effect = RuntimeError("429 RESOURCE_EXHAUSTED")
+
+    store = ChromaVectorStore(embedding_provider=mock_embeddings)
+    chunks = [
+        make_chunk("nav", "Main page Contents Current events Random article Donate"),
+        make_chunk("intro", "This article is about a concept in physics."),
+        make_chunk("formula", "Boltzmann's entropy is S = k_B ln Ω, counting microstates."),
+    ]
+
+    result = store.select_relevant_chunks("What is entropy?", chunks, top_k=1)
+
+    assert [c.chunk_id for c in result] == ["formula"]
