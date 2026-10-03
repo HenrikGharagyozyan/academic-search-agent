@@ -31,6 +31,10 @@ class ScrapeRateLimited(RateLimited):
     """The provider refused a scrape for quota, not because the page is bad."""
 
 
+class SearchRateLimited(RateLimited):
+    """The provider refused a search for quota, not because nothing matched."""
+
+
 def _is_rate_limit(exc: Exception) -> bool:
     text = f"{type(exc).__name__} {exc}".lower()
     return "ratelimit" in text or "rate limit" in text or "429" in text
@@ -61,10 +65,17 @@ class FirecrawlProvider:
     def search(
         self, query: str, limit: int = 5, since_year: int | None = None
     ) -> list[SearchResult]:
-        response = self._client.search(
-            query,
-            limit=limit,
-            tbs=_date_filter(since_year) if since_year else None,
+        # Retried like a scrape: the searches share the scrapes' quota, and a
+        # refused search silently costs the answer one of its planned angles —
+        # or, with every query refused, the whole run.
+        response = self._with_retry(
+            lambda: self._client.search(
+                query,
+                limit=limit,
+                tbs=_date_filter(since_year) if since_year else None,
+            ),
+            f"searching {query!r}",
+            SearchRateLimited,
         )
         web_results = response.web or []
 
