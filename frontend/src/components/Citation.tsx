@@ -4,7 +4,8 @@ import { computePopupPosition, type PopupPosition } from "../utils/popupPosition
 
 interface CitationProps {
   index: number;
-  evidence: AnswerEvidence;
+  /** Every passage the claim cites from one page. */
+  passages: AnswerEvidence[];
 }
 
 /**
@@ -24,15 +25,66 @@ function truncateText(text: string, maxLines: number = 5): { shown: string; trun
   return { shown: lines.slice(0, maxLines).join("\n"), truncated: true };
 }
 
-export function Citation({ index, evidence }: CitationProps) {
-  const [open, setOpen] = useState(false);
+/** One cited passage, collapsed to its first lines until asked for more. */
+function Quote({ passage, onResize }: { passage: AnswerEvidence; onResize: () => void }) {
   const [expanded, setExpanded] = useState(false);
+  const quote = readableQuote(passage.text);
+  const { shown, truncated } = truncateText(quote);
+
+  return (
+    <div style={{ marginBottom: 10 }}>
+      <div style={{ color: "var(--color-text-muted)", marginBottom: 4, fontSize: 12 }}>
+        Lines {passage.start_line}–{passage.end_line}
+      </div>
+      <div
+        style={{
+          whiteSpace: "pre-wrap",
+          // Raw markdown quotes carry long unbreakable URLs that would
+          // otherwise stretch the popup far past its width.
+          overflowWrap: "anywhere",
+          color: "var(--color-text)",
+          background: "var(--color-accent-bg)",
+          padding: "8px 10px",
+          borderRadius: 6,
+          fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+          fontSize: 12,
+        }}
+      >
+        {expanded ? quote : shown}
+        {truncated && !expanded && "…"}
+      </div>
+      {truncated && (
+        <button
+          onClick={() => {
+            setExpanded((e) => !e);
+            onResize();
+          }}
+          style={{
+            background: "none",
+            border: "none",
+            color: "var(--color-accent)",
+            cursor: "pointer",
+            padding: 0,
+            marginTop: 4,
+            fontSize: 12,
+            fontWeight: 600,
+            display: "block",
+          }}
+        >
+          {expanded ? "Show less" : "Show full quote"}
+        </button>
+      )}
+    </div>
+  );
+}
+
+export function Citation({ index, passages }: CitationProps) {
+  const [open, setOpen] = useState(false);
+  // Bumped when a quote expands, so the popup is placed again for its new height.
+  const [layout, setLayout] = useState(0);
   const [position, setPosition] = useState<PopupPosition | null>(null);
   const containerRef = useRef<HTMLSpanElement>(null);
-
-  const quote = readableQuote(evidence.text);
-  const { shown, truncated } = truncateText(quote);
-  const displayText = expanded ? quote : shown;
+  const first = passages[0];
 
   // Close the popup when clicking anywhere outside this component
   useEffect(() => {
@@ -64,14 +116,11 @@ export function Citation({ index, evidence }: CitationProps) {
       window.removeEventListener("resize", reposition);
       window.removeEventListener("scroll", reposition, true);
     };
-  }, [open, expanded]);
+  }, [open, layout]);
 
   function toggleOpen() {
-    setOpen((wasOpen) => {
-      // A reopened popup starts collapsed again.
-      if (wasOpen) setExpanded(false);
-      return !wasOpen;
-    });
+    // Closing unmounts the quotes, so a reopened popup starts collapsed again.
+    setOpen((wasOpen) => !wasOpen);
   }
 
   return (
@@ -124,54 +173,22 @@ export function Citation({ index, evidence }: CitationProps) {
           <div
             style={{
               fontWeight: 600,
-              marginBottom: 4,
+              marginBottom: 8,
               color: "var(--color-text)",
               overflowWrap: "anywhere",
             }}
           >
-            {evidence.title}
+            {first.title}
           </div>
-          <div style={{ color: "var(--color-text-muted)", marginBottom: 10, fontSize: 12 }}>
-            Lines {evidence.start_line}–{evidence.end_line}
-          </div>
-          <div
-            style={{
-              whiteSpace: "pre-wrap",
-              // Raw markdown quotes carry long unbreakable URLs that would
-              // otherwise stretch the popup far past its width.
-              overflowWrap: "anywhere",
-              marginBottom: 10,
-              color: "var(--color-text)",
-              background: "var(--color-accent-bg)",
-              padding: "8px 10px",
-              borderRadius: 6,
-              fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
-              fontSize: 12,
-            }}
-          >
-            {displayText}
-            {truncated && !expanded && "…"}
-          </div>
-          {truncated && (
-            <button
-              onClick={() => setExpanded((e) => !e)}
-              style={{
-                background: "none",
-                border: "none",
-                color: "var(--color-accent)",
-                cursor: "pointer",
-                padding: 0,
-                fontSize: 12,
-                fontWeight: 600,
-                marginBottom: 10,
-                display: "block",
-              }}
-            >
-              {expanded ? "Show less" : "Show full quote"}
-            </button>
-          )}
+          {passages.map((passage) => (
+            <Quote
+              key={passage.chunk_id}
+              passage={passage}
+              onResize={() => setLayout((n) => n + 1)}
+            />
+          ))}
           <a
-            href={evidence.source_url}
+            href={first.source_url}
             target="_blank"
             rel="noopener noreferrer"
             style={{

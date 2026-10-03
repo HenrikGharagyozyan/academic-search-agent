@@ -60,7 +60,7 @@ export function ClaimText({ claim, evidence, citationNumbers }: ClaimTextProps) 
         )
         .map((c, i, arr) => (
           <span key={c.id}>
-            <Citation index={c.number} evidence={c.item} />
+            <Citation index={c.number} passages={[c.item]} />
             {i < arr.length - 1 && <span style={{ marginRight: 2 }}>,</span>}
           </span>
         ))}
