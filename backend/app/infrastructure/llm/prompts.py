@@ -337,7 +337,13 @@ satisfactory if:
 - the answer does not meaningfully address the question, or is too thin to be \
   useful
 
-Otherwise, be lenient with partial but genuinely informative answers."""
+Otherwise, be lenient with partial but genuinely informative answers.
+
+When the answer is not satisfactory, say why in `problem` and name in \
+`missing` what it needed: the aspect of the question it skipped, the method or \
+term it never reached, the kind of source it lacked. Be concrete enough to \
+search for — the name of the missing method or aspect, in the question's own \
+field, rather than "more detail". This is what the next search will aim at."""
 
 # Said again after the evidence, because that is where it is acted on. The same
 # rules in the system prompt were followed for about six answers in ten on a
