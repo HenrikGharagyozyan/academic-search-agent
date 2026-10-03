@@ -4,6 +4,7 @@ import type { ActivityStep, Answer } from "./types/answer";
 import { ActivityLog } from "./components/ActivityLog";
 import { ClaimText } from "./components/ClaimText";
 import { Prose } from "./components/Prose";
+import { ThemeToggle } from "./components/ThemeToggle";
 
 function App() {
   const [question, setQuestion] = useState("");
@@ -69,6 +70,7 @@ function App() {
         padding: "64px 24px",
       }}
     >
+      <ThemeToggle />
       <header style={{ textAlign: "center", marginBottom: 40 }}>
         <h1
           style={{
