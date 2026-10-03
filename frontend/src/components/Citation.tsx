@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import type { AnswerEvidence } from "../types/answer";
 import { computePopupPosition, type PopupPosition } from "../utils/popupPosition";
+import { faviconUrl, siteName } from "../utils/sources";
 
 interface CitationProps {
-  index: number;
   /** Every passage the claim cites from one page. */
   passages: AnswerEvidence[];
 }
@@ -78,13 +78,54 @@ function Quote({ passage, onResize }: { passage: AnswerEvidence; onResize: () =>
   );
 }
 
-export function Citation({ index, passages }: CitationProps) {
+/** The site's icon, or its initial when the icon cannot be fetched. */
+function SiteIcon({ url, name }: { url: string; name: string }) {
+  const [failed, setFailed] = useState(false);
+  const size = 12;
+
+  if (failed) {
+    return (
+      <span
+        aria-hidden
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          width: size,
+          height: size,
+          borderRadius: 3,
+          background: "var(--color-border)",
+          color: "var(--color-text)",
+          fontSize: 8,
+          fontWeight: 700,
+          flexShrink: 0,
+        }}
+      >
+        {name.charAt(0).toUpperCase()}
+      </span>
+    );
+  }
+  return (
+    <img
+      src={faviconUrl(url)}
+      alt=""
+      width={size}
+      height={size}
+      loading="lazy"
+      onError={() => setFailed(true)}
+      style={{ borderRadius: 2, flexShrink: 0 }}
+    />
+  );
+}
+
+export function Citation({ passages }: CitationProps) {
   const [open, setOpen] = useState(false);
   // Bumped when a quote expands, so the popup is placed again for its new height.
   const [layout, setLayout] = useState(0);
   const [position, setPosition] = useState<PopupPosition | null>(null);
   const containerRef = useRef<HTMLSpanElement>(null);
   const first = passages[0];
+  const name = siteName(first.source_url);
 
   // Close the popup when clicking anywhere outside this component
   useEffect(() => {
@@ -127,26 +168,32 @@ export function Citation({ index, passages }: CitationProps) {
     <span ref={containerRef} style={{ position: "relative", display: "inline-block" }}>
       <button
         onClick={toggleOpen}
+        title={first.title || name}
+        aria-label={`Source: ${name}`}
         style={{
           display: "inline-flex",
           alignItems: "center",
-          justifyContent: "center",
-          minWidth: 20,
+          gap: 5,
           height: 20,
-          padding: "0 5px",
-          marginLeft: 3,
-          border: "1px solid var(--color-border)",
+          maxWidth: 160,
+          padding: "0 8px 0 5px",
+          marginLeft: 4,
+          border: `1px solid ${open ? "var(--color-accent)" : "var(--color-border)"}`,
           borderRadius: 999,
-          background: open ? "var(--color-accent)" : "var(--color-accent-bg)",
-          color: open ? "white" : "var(--color-accent)",
+          background: open ? "var(--color-accent-bg)" : "var(--color-chip)",
+          color: open ? "var(--color-accent)" : "var(--color-text-muted)",
           fontSize: 11,
-          fontWeight: 700,
+          fontWeight: 500,
+          lineHeight: 1,
           cursor: "pointer",
           verticalAlign: "middle",
           transition: "all 0.12s",
         }}
       >
-        {index}
+        <SiteIcon url={first.source_url} name={name} />
+        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {name}
+        </span>
       </button>
 
       {open && position && (
