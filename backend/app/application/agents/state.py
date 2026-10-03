@@ -22,6 +22,9 @@ class ResearchState(TypedDict):
     conclusion: str
     retry_count: int
     evidence_sufficient: bool
+    # Why the last answer was judged insufficient, for the rewrite of the search
+    # to aim at. Empty while nothing has fallen short.
+    shortfall: str
     # Appended to, never replaced: every node contributes, and a refine pass
     # adds to the record of the first one instead of erasing it.
     activity: Annotated[list[ActivityStep], operator.add]

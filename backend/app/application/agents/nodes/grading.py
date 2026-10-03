@@ -6,6 +6,7 @@ from app.application.agents.constants import GRADE_BATCH_SIZE
 from app.application.agents.state import ResearchState
 from app.core.exceptions import UpstreamServiceError
 from app.domain.documents import Chunk
+from app.domain.grading import AnswerQualityGrade
 from app.ports.llm import LLMProvider
 
 logger = logging.getLogger(__name__)
@@ -85,12 +86,39 @@ def grade_relevance_node(state: ResearchState, llm: LLMProvider) -> dict:
     return {"selected_chunks": kept, "activity": recorder.steps}
 
 
+# Grounding failed before the grader saw anything: every claim cited a passage
+# that was never selected, or there were no claims at all.
+NO_GROUNDED_CLAIMS = (
+    "No claim could be grounded in the passages that were read: the pages found "
+    "did not address the question, or said too little about it to cite."
+)
+
+_PROBLEMS = {
+    "off_topic": "about something other than what was asked",
+    "too_thin": "on topic but too thin",
+    "missing_aspect": "on topic but missing part of the question",
+    "non_substantive_evidence": "built on non-substantive pages",
+    "not_a_research_question": "not something a literature search can answer",
+}
+
+
+def describe_shortfall(grade: AnswerQualityGrade) -> str:
+    """The grader's verdict as one sentence a query rewrite can act on."""
+    verdict = _PROBLEMS.get(grade.problem, "judged insufficient")
+    needed = grade.missing.strip() or grade.reasoning.strip()
+    return f"The answer was {verdict}." + (f" It needed: {needed}" if needed else "")
+
+
 def grade_answer_node(state: ResearchState, llm: LLMProvider) -> dict:
     recorder = ActivityRecorder(attempt=state.get("retry_count", 0))
 
     if not state["claims"]:
         recorder.record("grade_answer", "No grounded claims to review")
-        return {"evidence_sufficient": False, "activity": recorder.steps}
+        return {
+            "evidence_sufficient": False,
+            "shortfall": NO_GROUNDED_CLAIMS,
+            "activity": recorder.steps,
+        }
 
     try:
         grade = llm.grade_answer_quality(
@@ -119,6 +147,12 @@ def grade_answer_node(state: ResearchState, llm: LLMProvider) -> dict:
     )
 
     if not grade.is_satisfactory:
-        return {"evidence_sufficient": False, "activity": recorder.steps}
+        # Kept for refine_query: without it the rewrite knew only that the
+        # answer failed, and rephrased the question it had already searched.
+        return {
+            "evidence_sufficient": False,
+            "shortfall": describe_shortfall(grade),
+            "activity": recorder.steps,
+        }
 
     return {"activity": recorder.steps}
