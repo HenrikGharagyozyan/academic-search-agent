@@ -41,6 +41,8 @@ def result(url: str, title: str = "A paper") -> SearchResult:
         "state-of-the-art fiber endoscopy",
         "what is new in transmission matrices",
         "current trends in multimode fibers",
+        "newest results on sparse autoencoders",
+        "trending architectures for retrieval",
         "последние исследования по матрице пропускания",
         "недавние работы по волновому фронту",
     ],
@@ -57,6 +59,11 @@ def test_a_question_about_current_work_is_recognised(question):
         "how does gradient descent converge for convex functions",
         "the 1998 proof of Fermat's last theorem",
         "Shannon's 1948 paper on information theory",
+        # Words that merely begin with a recency term.
+        "What is Newton's second law of motion?",
+        "Newtonian mechanics in rotating frames",
+        "renewable energy storage",
+        "modernist architecture",
         "",
     ],
 )
