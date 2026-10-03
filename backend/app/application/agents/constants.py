@@ -25,14 +25,19 @@ ROUTE_REFINE = "refine"
 
 # How many differently-aimed searches to run per attempt, and how many results
 # to take from each. The budget is deliberately spread: one query returning six
-# results is how a topic came back as one paper under six domains.
+# results is how a topic came back as one paper under six domains. Ten per query
+# rather than five so that there is something to choose between: the twelve
+# pages read are picked from all of them by app.domain.sources, and the journal
+# article at position seven is no longer out of reach behind a forum thread.
 MAX_QUERIES = 4
-RESULTS_PER_QUERY = 5
+RESULTS_PER_QUERY = 10
 
 # Distinct pages to read per attempt. The mirror check collapses duplicates of
 # one paper, so a page here is closer to a distinct document than it used to be,
 # and the relevance judge discards most of what arrives — both argue for asking
-# for more than the eight this started at.
+# for more than the eight this started at. Unchanged by the wider search above:
+# this is bounded by the provider's scrape quota, not by how many candidates
+# there are.
 MAX_SOURCES = 12
 MAX_RETRIES = 1
 
@@ -48,7 +53,17 @@ GRADE_BATCH_SIZE = 8
 # what it sees — so the number of candidates it gets is what decides how many
 # approaches the answer can cover. Embedding cost does not scale with this:
 # every passage is embedded either way, so the price is generation tokens.
-TOP_K_CHUNKS = 40
+#
+# Raised from 40 when the pages read became distinct and readable. Passages are
+# shared out a turn per source, so the budget is divided by the number of pages
+# that yield any: before source ranking, half the queue was Reddit and YouTube,
+# which Firecrawl cannot read or which come back empty, and about six pages split
+# forty passages. With twelve real pages each got three, and Wikipedia's one
+# passage on "what is entropy" carried no formula — measured on two runs, the
+# formulas in the answer fell from fourteen to six. Sixty gives each page about
+# five again. The batches stay at GRADE_BATCH_SIZE and run in parallel, so the
+# judge is asked more often, not asked to weigh more at once.
+TOP_K_CHUNKS = 60
 
 # For a recency question, how far back still counts as current work. A year is
 # the usual web default and too tight for a literature review.

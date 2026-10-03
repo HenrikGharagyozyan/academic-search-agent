@@ -7,6 +7,7 @@ from pydantic import BaseModel
 StepKind = Literal[
     "plan",
     "search",
+    "rank",
     "source_found",
     "scrape_ok",
     "scrape_failed",
