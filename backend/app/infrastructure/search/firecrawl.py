@@ -13,14 +13,14 @@ logger = logging.getLogger(__name__)
 SCRAPE_CACHE_TTL_SECONDS = 3600
 SCRAPE_CACHE_MAXSIZE = 256
 
-# Firecrawl bills scrapes per minute and refuses the rest. A burst of twelve
-# concurrent scrapes hit "Consumed (req/min): 11, Remaining: 0" and the pages it
-# refused were reported as unreadable — so a rate limit looked like a broken
-# site, and which sources an answer was built from varied run to run for no
-# visible reason. Retrying is the fix; the wait is the plan's, not ours to
-# shorten.
-SCRAPE_RETRIES = 2
-SCRAPE_RETRY_WAIT_SECONDS = 20.0
+# Firecrawl counts searches and scrapes against one per-minute quota and
+# refuses the rest. A burst of twelve concurrent scrapes hit "Consumed
+# (req/min): 11, Remaining: 0" and the pages it refused were reported as
+# unreadable — so a rate limit looked like a broken site, and which sources an
+# answer was built from varied run to run for no visible reason. Retrying is
+# the fix; the wait is the plan's, not ours to shorten.
+RATE_LIMIT_RETRIES = 2
+RATE_LIMIT_WAIT_SECONDS = 20.0
 
 
 class RateLimited(Exception):
@@ -109,19 +109,19 @@ class FirecrawlProvider:
         Anything other than a rate limit is raised at once: a retry cannot fix
         a bad URL or a bad query, and would only spend more of the quota.
         """
-        for attempt in range(SCRAPE_RETRIES + 1):
+        for attempt in range(RATE_LIMIT_RETRIES + 1):
             try:
                 return call()
             except Exception as exc:
                 if not _is_rate_limit(exc):
                     raise
-                if attempt == SCRAPE_RETRIES:
+                if attempt == RATE_LIMIT_RETRIES:
                     raise exhausted(
                         f"rate limited {action} after {attempt + 1} attempts"
                     ) from exc
-                wait = SCRAPE_RETRY_WAIT_SECONDS * (attempt + 1)
+                wait = RATE_LIMIT_WAIT_SECONDS * (attempt + 1)
                 logger.warning(
                     "Firecrawl rate-limited %s, retrying in %.0fs (%d/%d)",
-                    action, wait, attempt + 1, SCRAPE_RETRIES,
+                    action, wait, attempt + 1, RATE_LIMIT_RETRIES,
                 )
                 time.sleep(wait)

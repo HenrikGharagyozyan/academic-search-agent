@@ -371,7 +371,7 @@ def test_a_persistent_rate_limit_is_reported_as_itself():
     from unittest.mock import patch
 
     from app.infrastructure.search.firecrawl import (
-        SCRAPE_RETRIES,
+        RATE_LIMIT_RETRIES,
         FirecrawlProvider,
         ScrapeRateLimited,
     )
@@ -387,7 +387,7 @@ def test_a_persistent_rate_limit_is_reported_as_itself():
         ):
             provider.scrape("https://example.com")
 
-        assert client.scrape.call_count == SCRAPE_RETRIES + 1
+        assert client.scrape.call_count == RATE_LIMIT_RETRIES + 1
 
 
 def test_an_ordinary_scrape_failure_is_not_retried():
