@@ -222,3 +222,6 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Source-selection eval output (app/scripts/eval_sources.py)
+backend/.eval/

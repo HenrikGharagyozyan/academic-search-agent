@@ -127,14 +127,20 @@ def fold_plural(word: str) -> str:
     return word
 
 
+def anchor_sequence(text: str) -> list[str]:
+    """The subject words of a text in the order they appear — for when word
+    order matters, as it does for spotting "large language model" as "LLM"."""
+    return [
+        fold_plural(word)
+        for word in _WORD.findall(text.lower())
+        if len(word) > 2 and word not in _GENERIC
+    ]
+
+
 def anchor_terms(question: str) -> frozenset[str]:
     """The words that say what the question is about, stripped of everything that
     only says it is a question about research."""
-    return frozenset(
-        fold_plural(word)
-        for word in _WORD.findall(question.lower())
-        if len(word) > 2 and word not in _GENERIC
-    )
+    return frozenset(anchor_sequence(question))
 
 
 def stays_on_topic(

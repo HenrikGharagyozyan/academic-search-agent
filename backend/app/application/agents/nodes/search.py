@@ -1,4 +1,5 @@
 import logging
+from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 
 from app.application.agents.activity import ActivityRecorder, count, short_host
@@ -6,35 +7,24 @@ from app.application.agents.constants import MAX_SOURCES, RESULTS_PER_QUERY
 from app.application.agents.state import ResearchState
 from app.core.exceptions import UpstreamServiceError
 from app.domain.search import SearchResult
+from app.domain.sources import Candidate, select_sources
 from app.domain.text.plain import to_label
 from app.ports.search import SearchProvider
 
 logger = logging.getLogger(__name__)
 
 
-def _interleave(per_query: list[list[SearchResult]], limit: int) -> list[SearchResult]:
-    """Takes results round-robin across queries, dropping repeated URLs.
+_TIER_NAMES = {"scholarly": "scholarly", "reference": "reference"}
 
-    Round-robin rather than concatenation: the first query would otherwise fill
-    the budget on its own and the other queries — the ones deliberately aimed
-    elsewhere — would contribute nothing.
-    """
-    merged: list[SearchResult] = []
-    seen: set[str] = set()
 
-    for rank in range(max((len(results) for results in per_query), default=0)):
-        for results in per_query:
-            if len(merged) >= limit:
-                return merged
-            if rank >= len(results):
-                continue
-            result = results[rank]
-            if result.url in seen:
-                continue
-            seen.add(result.url)
-            merged.append(result)
-
-    return merged
+def _mix(chosen: list[Candidate]) -> str:
+    """"7 scholarly · 3 reference · 2 other". Unknown and low-priority hosts are
+    counted together on purpose: the reader is told what was favoured, not
+    handed a verdict on a particular site."""
+    tally = Counter(_TIER_NAMES.get(c.tier, "other") for c in chosen)
+    return " · ".join(
+        f"{tally[name]} {name}" for name in ("scholarly", "reference", "other") if tally[name]
+    )
 
 
 def search_node(state: ResearchState, search_provider: SearchProvider) -> dict:
@@ -70,7 +60,22 @@ def search_node(state: ResearchState, search_provider: SearchProvider) -> dict:
     if not per_query:
         raise UpstreamServiceError("Search provider failed for every query")
 
-    results = _interleave(per_query, MAX_SOURCES)
+    # The question, not the planned queries: every query was planned from it, and
+    # it is what the passages are ranked against later, so a page is judged by
+    # the same measure at both ends.
+    selection = select_sources(per_query, state["question"], MAX_SOURCES)
+    results = [c.result for c in selection.chosen]
+
+    details = [_mix(selection.chosen)]
+    if selection.mirrors_set_aside:
+        details.append(
+            f"{count(selection.mirrors_set_aside, 'copy', 'copies')} of a chosen page set aside"
+        )
+    recorder.record(
+        "rank",
+        f"Ranked {count(selection.considered, 'candidate')}, reading {len(results)}",
+        detail=", ".join(d for d in details if d) or None,
+    )
 
     for result in results:
         # The engine hands back whatever it scraped: arXiv's metadata table, a
