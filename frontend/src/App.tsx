@@ -117,7 +117,7 @@ function App() {
             style={{
               border: "none",
               background: loading ? "var(--color-text-muted)" : "var(--color-accent)",
-              color: "white",
+              color: "var(--color-on-accent)",
               padding: "10px 20px",
               borderRadius: 8,
               fontSize: 14,
@@ -132,7 +132,7 @@ function App() {
       </form>
 
       {error && (
-        <p style={{ color: "#dc2626", marginTop: 16, fontSize: 14 }}>{error}</p>
+        <p style={{ color: "var(--color-danger)", marginTop: 16, fontSize: 14 }}>{error}</p>
       )}
       {loading && stage && (
         <div style={{ marginTop: 16, textAlign: "center" }}>
@@ -176,13 +176,13 @@ function App() {
                 {!answer.evidence_sufficient && (
                 <div
                   style={{
-                    background: "#fef3c7",
-                    border: "1px solid #f59e0b",
+                    background: "var(--color-warning-bg)",
+                    border: "1px solid var(--color-warning-border)",
                     borderRadius: 8,
                     padding: "10px 14px",
                     marginBottom: 20,
                     fontSize: 13,
-                    color: "#92400e",
+                    color: "var(--color-warning-text)",
                     lineHeight: 1.5,
                   }}
                 >
