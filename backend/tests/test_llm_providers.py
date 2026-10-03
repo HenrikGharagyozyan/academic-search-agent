@@ -64,7 +64,19 @@ def test_refine_query_reads_text_not_content(llm):
     # A model returning content blocks makes `.content` a list; `.text` flattens both.
     llm.invoke.return_value = AIMessage(content=[{"type": "text", "text": "  refined  "}])
 
-    assert build_provider(llm).refine_query("q?", "old query") == "refined"
+    assert build_provider(llm).refine_query("q?", ["old query"], "too thin") == "refined"
+
+
+def test_refine_query_shows_the_model_the_searches_run_and_the_shortfall(llm):
+    llm.invoke.return_value = AIMessage(content="new query")
+
+    build_provider(llm).refine_query(
+        "how is X measured?", ["X measurement", "X review"], "It needed: the calibration step"
+    )
+    rendered = " ".join(m.content for m in llm.invoke.call_args.args[0].to_messages())
+
+    assert "- X measurement" in rendered and "- X review" in rendered
+    assert "It needed: the calibration step" in rendered
 
 
 def test_grade_relevance_returns_the_structured_grade(llm):

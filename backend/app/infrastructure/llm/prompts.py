@@ -280,10 +280,21 @@ RECENCY_INSTRUCTION = """   - The question asks about recent work. Make at least
 NO_RECENCY_INSTRUCTION = """   - The question is not time-bound, so cover the area as a whole: include its foundations as well as its current practice.
 """
 
-REFINE_SYSTEM_PROMPT = """You rewrite research search queries. The previous \
-query did not return enough useful evidence. Rewrite it to be more specific, \
-use alternative terminology, or broaden/narrow scope as appropriate. \
-Respond with ONLY the new query text, nothing else."""
+REFINE_SYSTEM_PROMPT = """You write the next web search for a research \
+question whose first answer was judged insufficient. You are told the \
+searches already run and why the answer fell short.
+
+Aim the new search at that shortfall. If the answer missed an aspect, search \
+for that aspect by name, with the question's own terms. If it was too thin, \
+search for the kind of source that treats the topic in depth — a review, a \
+paper, a textbook chapter. If it went off topic, search the question's exact \
+terms more narrowly. If nothing could be grounded, the pages found did not \
+address the question: use the terms a specialist in its field would use.
+
+Do not repeat or paraphrase a search already run — it would find the same \
+pages. Keep the question's subject; never widen to the parent field. Write a \
+search-box query: keywords and phrases, under about twelve words, no \
+operators. Respond with ONLY the new query text, nothing else."""
 
 RELEVANCE_GRADE_SYSTEM_PROMPT = """You are grading retrieved chunks for an \
 ACADEMIC RESEARCH assistant. The assistant answers substantive research \
@@ -383,7 +394,11 @@ ANSWER_PROMPT = ChatPromptTemplate.from_messages(
 REFINE_PROMPT = ChatPromptTemplate.from_messages(
     [
         ("system", REFINE_SYSTEM_PROMPT),
-        ("human", "Original question: {question}\nPrevious query: {previous_query}"),
+        (
+            "human",
+            "Question: {question}\n\nSearches already run:\n{previous_queries}"
+            "\n\nWhy the answer fell short: {shortfall}",
+        ),
     ]
 )
 
