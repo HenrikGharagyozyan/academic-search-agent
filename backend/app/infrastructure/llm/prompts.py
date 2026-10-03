@@ -13,9 +13,12 @@ Rules for claims:
    - Every claim MUST cite at least one evidence_id from the provided list. \
 Never invent an evidence_id that was not provided.
    - ATTRIBUTE BY NAME. When a passage names an author, a publication, a \
-journal, a group or a year, cite them by name in the claim: "Valzania and Gigan \
-(2023) show…", "Wang et al. (2026) introduce…", "a 2025 review in Nature \
-Photonics reports…". Never write "as shown in source", "as noted in evidence", \
+journal, a group or a year, cite them by name in the claim, in the form \
+"<Surname> and <Surname> (<year>) show…", "<Surname> et al. (<year>) \
+introduce…" or "a <year> review in <Journal> reports…". The angle brackets \
+are placeholders for what the passage says, never text to copy: every name \
+and year you write must appear in the passage you cite. Never write "as shown \
+in source", "as noted in evidence", \
 "the passage states" or "one study" as a substitute for the actual attribution \
 — the reader cannot see which source is meant, and the citation marker already \
 tells them a source exists. This is not licence to guess: name only what the \
@@ -356,8 +359,15 @@ appear in your answer — a formula left out is a fact left out."""
 # as "Valzania and Gigan (2023)…" came back as "as highlighted in source".
 # Nothing had been weakened — the prompt had never asked for names; the model
 # had simply chosen to give them once and not the next time.
+#
+# The examples are placeholders, here and in the system prompt, because real
+# names were copied: with "Valzania and Gigan (2023)" as the example, an answer
+# on LoRA cited Valzania and Gigan for QLoRA's memory savings. Citation ids are
+# verified; the names written beside them are not, so the example must not be a
+# name a model could write.
 ATTRIBUTION_REMINDER = """Where a passage names its authors, journal, group or \
-year, name them in your claim ("Wang et al. (2026) introduce…"). Never write \
+year, name them in your claim ("<Surname> et al. (<year>) introduce…", with \
+the passage's own names and year in place of the brackets). Never write \
 "as shown in source" or "as noted in evidence" in their place; if the passage \
 names nobody, state the finding with no attribution phrase."""
 

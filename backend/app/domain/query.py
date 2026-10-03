@@ -51,6 +51,7 @@ _RECENCY_TERMS = (
     "today",
     "trend",
     "trends",
+    "trending",
     # Russian, since the interface accepts any language the model does.
     "последние",
     "последний",
@@ -109,7 +110,14 @@ def has_recency_intent(text: str, today: date | None = None) -> bool:
         if " " in term or "-" in term:
             if term in lowered:
                 return True
-        elif term in words or any(w.startswith(term) for w in words):
+        elif term in words:
+            return True
+        # A prefix only for the non-English terms, so that a listed form also
+        # covers the longer endings built on it ("тренд" in "тренды"). An
+        # English term is a whole word: matched as a prefix, "new" found
+        # "Newton", and a question about the second law was searched for pages
+        # from the last three years only.
+        elif not term.isascii() and any(w.startswith(term) for w in words):
             return True
 
     current_year = (today or date.today()).year

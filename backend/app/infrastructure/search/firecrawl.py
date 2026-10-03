@@ -13,18 +13,26 @@ logger = logging.getLogger(__name__)
 SCRAPE_CACHE_TTL_SECONDS = 3600
 SCRAPE_CACHE_MAXSIZE = 256
 
-# Firecrawl bills scrapes per minute and refuses the rest. A burst of twelve
-# concurrent scrapes hit "Consumed (req/min): 11, Remaining: 0" and the pages it
-# refused were reported as unreadable — so a rate limit looked like a broken
-# site, and which sources an answer was built from varied run to run for no
-# visible reason. Retrying is the fix; the wait is the plan's, not ours to
-# shorten.
-SCRAPE_RETRIES = 2
-SCRAPE_RETRY_WAIT_SECONDS = 20.0
+# Firecrawl counts searches and scrapes against one per-minute quota and
+# refuses the rest. A burst of twelve concurrent scrapes hit "Consumed
+# (req/min): 11, Remaining: 0" and the pages it refused were reported as
+# unreadable — so a rate limit looked like a broken site, and which sources an
+# answer was built from varied run to run for no visible reason. Retrying is
+# the fix; the wait is the plan's, not ours to shorten.
+RATE_LIMIT_RETRIES = 2
+RATE_LIMIT_WAIT_SECONDS = 20.0
 
 
-class ScrapeRateLimited(Exception):
+class RateLimited(Exception):
+    """The provider refused a request for quota, not because of what was asked."""
+
+
+class ScrapeRateLimited(RateLimited):
     """The provider refused a scrape for quota, not because the page is bad."""
+
+
+class SearchRateLimited(RateLimited):
+    """The provider refused a search for quota, not because nothing matched."""
 
 
 def _is_rate_limit(exc: Exception) -> bool:
@@ -57,10 +65,17 @@ class FirecrawlProvider:
     def search(
         self, query: str, limit: int = 5, since_year: int | None = None
     ) -> list[SearchResult]:
-        response = self._client.search(
-            query,
-            limit=limit,
-            tbs=_date_filter(since_year) if since_year else None,
+        # Retried like a scrape: the searches share the scrapes' quota, and a
+        # refused search silently costs the answer one of its planned angles —
+        # or, with every query refused, the whole run.
+        response = self._with_retry(
+            lambda: self._client.search(
+                query,
+                limit=limit,
+                tbs=_date_filter(since_year) if since_year else None,
+            ),
+            f"searching {query!r}",
+            SearchRateLimited,
         )
         web_results = response.web or []
 
@@ -93,19 +108,31 @@ class FirecrawlProvider:
         return page
 
     def _scrape_with_retry(self, url: str):
-        for attempt in range(SCRAPE_RETRIES + 1):
+        return self._with_retry(
+            lambda: self._client.scrape(url, formats=["markdown"]),
+            f"scraping {url}",
+            ScrapeRateLimited,
+        )
+
+    def _with_retry(self, call, action: str, exhausted: type[RateLimited]):
+        """Runs ``call``, waiting out the provider's per-minute quota.
+
+        Anything other than a rate limit is raised at once: a retry cannot fix
+        a bad URL or a bad query, and would only spend more of the quota.
+        """
+        for attempt in range(RATE_LIMIT_RETRIES + 1):
             try:
-                return self._client.scrape(url, formats=["markdown"])
+                return call()
             except Exception as exc:
                 if not _is_rate_limit(exc):
                     raise
-                if attempt == SCRAPE_RETRIES:
-                    raise ScrapeRateLimited(
-                        f"rate limited scraping {url} after {attempt + 1} attempts"
+                if attempt == RATE_LIMIT_RETRIES:
+                    raise exhausted(
+                        f"rate limited {action} after {attempt + 1} attempts"
                     ) from exc
-                wait = SCRAPE_RETRY_WAIT_SECONDS * (attempt + 1)
+                wait = RATE_LIMIT_WAIT_SECONDS * (attempt + 1)
                 logger.warning(
-                    "Firecrawl rate-limited scraping %s, retrying in %.0fs (%d/%d)",
-                    url, wait, attempt + 1, SCRAPE_RETRIES,
+                    "Firecrawl rate-limited %s, retrying in %.0fs (%d/%d)",
+                    action, wait, attempt + 1, RATE_LIMIT_RETRIES,
                 )
                 time.sleep(wait)

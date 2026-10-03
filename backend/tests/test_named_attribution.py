@@ -5,6 +5,8 @@ al. (2026) introduce…" and once as "as highlighted in source", "as noted in
 evidence". No edit had weakened a rule: the prompt had never asked for names.
 """
 
+import re
+
 from app.infrastructure.llm.prompts import ANSWER_PROMPT, SYSTEM_PROMPT
 
 FLAT = " ".join(SYSTEM_PROMPT.split())
@@ -49,3 +51,22 @@ def test_the_rule_is_repeated_after_the_evidence():
 
 def test_the_maths_reminder_is_still_there():
     assert "$$E = mc^2$$" in _after_evidence()
+
+
+# A citation shaped like a real one: "Surname (2023)", "Surname et al. (2023)",
+# "Surname and Surname (2023)".
+_CITATION = re.compile(r"\b[A-Z][a-z]+(?: et al\.| and [A-Z][a-z]+)? \(\d{4}\)")
+
+
+def test_the_examples_name_nobody_a_model_could_cite():
+    """With "Valzania and Gigan (2023)" as the example, an answer on LoRA cited
+    Valzania and Gigan for QLoRA. Nothing checks the names beside a citation,
+    so the prompt must not offer one."""
+    assert not _CITATION.findall(SYSTEM_PROMPT)
+    assert not _CITATION.findall(_after_evidence())
+
+
+def test_the_placeholders_are_declared_as_placeholders():
+    assert "<Surname> et al. (<year>)" in SYSTEM_PROMPT
+    assert "never text to copy" in FLAT
+    assert "must appear in the passage you cite" in FLAT
