@@ -71,6 +71,41 @@ def test_grade_answer_marks_insufficient_when_unsatisfactory():
     assert result["activity"][0].detail == "off topic"
 
 
+def test_an_insufficient_answer_leaves_its_shortfall_for_the_rewrite():
+    mock_llm = MagicMock()
+    mock_llm.grade_answer_quality.return_value = AnswerQualityGrade(
+        is_satisfactory=False,
+        reasoning="covers base editing only",
+        problem="missing_aspect",
+        missing="how prime editing differs from base editing",
+    )
+    state = {
+        "question": "q?", "summary": "s", "conclusion": "c",
+        "claims": [Claim(text="x", evidence_ids=["c1"], confidence="high")],
+    }
+
+    shortfall = grade_answer_node(state, llm=mock_llm)["shortfall"]
+
+    assert "missing part of the question" in shortfall
+    assert "how prime editing differs from base editing" in shortfall
+
+
+def test_a_shortfall_without_missing_falls_back_to_the_reasoning():
+    from app.application.agents.nodes.grading import describe_shortfall
+
+    grade = AnswerQualityGrade(is_satisfactory=False, reasoning="only one weak source", problem="too_thin")
+
+    assert describe_shortfall(grade) == "The answer was on topic but too thin. It needed: only one weak source"
+
+
+def test_no_grounded_claims_is_a_shortfall_too():
+    from app.application.agents.nodes.grading import NO_GROUNDED_CLAIMS
+
+    result = grade_answer_node({"question": "q?", "claims": []}, llm=MagicMock())
+
+    assert result["shortfall"] == NO_GROUNDED_CLAIMS
+
+
 def test_grade_answer_returns_empty_when_satisfactory():
     mock_llm = MagicMock()
     mock_llm.grade_answer_quality.return_value = AnswerQualityGrade(
