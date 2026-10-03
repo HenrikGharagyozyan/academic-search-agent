@@ -23,7 +23,11 @@ SCRAPE_RETRIES = 2
 SCRAPE_RETRY_WAIT_SECONDS = 20.0
 
 
-class ScrapeRateLimited(Exception):
+class RateLimited(Exception):
+    """The provider refused a request for quota, not because of what was asked."""
+
+
+class ScrapeRateLimited(RateLimited):
     """The provider refused a scrape for quota, not because the page is bad."""
 
 
@@ -93,19 +97,31 @@ class FirecrawlProvider:
         return page
 
     def _scrape_with_retry(self, url: str):
+        return self._with_retry(
+            lambda: self._client.scrape(url, formats=["markdown"]),
+            f"scraping {url}",
+            ScrapeRateLimited,
+        )
+
+    def _with_retry(self, call, action: str, exhausted: type[RateLimited]):
+        """Runs ``call``, waiting out the provider's per-minute quota.
+
+        Anything other than a rate limit is raised at once: a retry cannot fix
+        a bad URL or a bad query, and would only spend more of the quota.
+        """
         for attempt in range(SCRAPE_RETRIES + 1):
             try:
-                return self._client.scrape(url, formats=["markdown"])
+                return call()
             except Exception as exc:
                 if not _is_rate_limit(exc):
                     raise
                 if attempt == SCRAPE_RETRIES:
-                    raise ScrapeRateLimited(
-                        f"rate limited scraping {url} after {attempt + 1} attempts"
+                    raise exhausted(
+                        f"rate limited {action} after {attempt + 1} attempts"
                     ) from exc
                 wait = SCRAPE_RETRY_WAIT_SECONDS * (attempt + 1)
                 logger.warning(
-                    "Firecrawl rate-limited scraping %s, retrying in %.0fs (%d/%d)",
-                    url, wait, attempt + 1, SCRAPE_RETRIES,
+                    "Firecrawl rate-limited %s, retrying in %.0fs (%d/%d)",
+                    action, wait, attempt + 1, SCRAPE_RETRIES,
                 )
                 time.sleep(wait)
