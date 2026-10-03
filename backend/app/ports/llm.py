@@ -33,8 +33,15 @@ class LLMProvider(Protocol):
     def generate_answer(self, question: str, evidence: Sequence[Chunk]) -> ClaimsResponse:
         """Writes a grounded answer citing only the given chunks."""
 
-    def refine_query(self, question: str, previous_query: str) -> str:
-        """Rewrites a search query that did not yield usable evidence."""
+    def refine_query(
+        self, question: str, previous_queries: Sequence[str], shortfall: str
+    ) -> str:
+        """Writes a new search aimed at what the last answer lacked.
+
+        ``previous_queries`` are the searches already run, so the new one does
+        not repeat them; ``shortfall`` is why the answer was judged
+        insufficient.
+        """
 
     def grade_relevance(self, question: str, chunks: Sequence[Chunk]) -> RelevanceGrade:
         """Picks the chunks that genuinely bear on the question."""

@@ -41,6 +41,8 @@ class ResearchService:
             "conclusion": "",
             "retry_count": 0,
             "evidence_sufficient": False,
+            "shortfall": "",
+            "shortfall_problem": "",
             "activity": [],
         }
 

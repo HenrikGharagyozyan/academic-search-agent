@@ -122,9 +122,15 @@ class LangChainLLMProvider:
 
     @_billing_surfaces
     @llm_retry
-    def refine_query(self, question: str, previous_query: str) -> str:
+    def refine_query(
+        self, question: str, previous_queries: Sequence[str], shortfall: str
+    ) -> str:
         prompt = REFINE_PROMPT.invoke(
-            {"question": question, "previous_query": previous_query}
+            {
+                "question": question,
+                "previous_queries": "\n".join(f"- {q}" for q in previous_queries),
+                "shortfall": shortfall or "not recorded",
+            }
         )
         # `.text` over `.content`: content is a string for some models and a list
         # of content blocks for others, and only `.text` flattens both.

@@ -11,8 +11,14 @@ logger = logging.getLogger(__name__)
 def refine_query_node(state: ResearchState, llm: LLMProvider) -> dict:
     recorder = ActivityRecorder(attempt=state.get("retry_count", 0))
 
+    # What was searched and why it was not enough. With only the question and
+    # its last query, the rewrite could do nothing but rephrase a search that
+    # had already been run four ways.
+    searched = state.get("search_queries") or [state["search_query"]]
+    shortfall = state.get("shortfall", "")
+
     try:
-        new_query = llm.refine_query(state["question"], state["search_query"])
+        new_query = llm.refine_query(state["question"], searched, shortfall)
     except UpstreamServiceError:
         raise
     except Exception:
@@ -23,6 +29,7 @@ def refine_query_node(state: ResearchState, llm: LLMProvider) -> dict:
         recorder.record(
             "refine",
             f"Not enough evidence — searching again for “{new_query}”",
+            detail=shortfall or None,
         )
 
     return {

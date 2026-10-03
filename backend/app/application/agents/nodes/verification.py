@@ -44,4 +44,8 @@ def should_refine(state: ResearchState) -> str:
         return ROUTE_END
     if state["retry_count"] >= MAX_RETRIES:
         return ROUTE_END
+    # Weather or a share price does not become a research question by being
+    # searched for in other words; a second search would only spend the quota.
+    if state.get("shortfall_problem") == "not_a_research_question":
+        return ROUTE_END
     return ROUTE_REFINE
