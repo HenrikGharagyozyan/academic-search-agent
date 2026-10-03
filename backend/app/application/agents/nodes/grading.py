@@ -152,6 +152,7 @@ def grade_answer_node(state: ResearchState, llm: LLMProvider) -> dict:
         return {
             "evidence_sufficient": False,
             "shortfall": describe_shortfall(grade),
+            "shortfall_problem": grade.problem,
             "activity": recorder.steps,
         }
 

@@ -1,6 +1,7 @@
 from unittest.mock import MagicMock
 
-from app.application.agents.nodes import verify_evidence_node
+from app.application.agents.constants import ROUTE_END, ROUTE_REFINE
+from app.application.agents.nodes import should_refine, verify_evidence_node
 from app.application.agents.nodes import refine_query_node
 from app.domain.answers import Claim
 from app.domain.documents import Chunk
@@ -105,3 +106,19 @@ def test_refine_without_planned_queries_falls_back_to_the_last_query():
     refine_query_node({"question": "q?", "search_query": "old", "retry_count": 0}, llm=mock_llm)
 
     assert mock_llm.refine_query.call_args.args[1:] == (["old"], "")
+
+
+def test_a_question_research_cannot_answer_is_not_searched_again():
+    state = {
+        "evidence_sufficient": False,
+        "retry_count": 0,
+        "shortfall_problem": "not_a_research_question",
+    }
+
+    assert should_refine(state) == ROUTE_END
+
+
+def test_any_other_shortfall_still_gets_its_retry():
+    state = {"evidence_sufficient": False, "retry_count": 0, "shortfall_problem": "too_thin"}
+
+    assert should_refine(state) == ROUTE_REFINE
