@@ -4,7 +4,6 @@ import type { ActivityStep, Answer } from "./types/answer";
 import { ActivityLog } from "./components/ActivityLog";
 import { ClaimText } from "./components/ClaimText";
 import { Prose } from "./components/Prose";
-import { buildCitationNumbers } from "./utils/citations";
 
 function App() {
   const [question, setQuestion] = useState("");
@@ -57,7 +56,6 @@ function App() {
     }
   };
 
-  const citationNumbers = answer ? buildCitationNumbers(answer) : new Map();
   // Distinct themes in the order they appear, so each section can be numbered.
   const themeOrder = answer
     ? [...new Set(answer.claims.map((c) => c.theme).filter(Boolean))]
@@ -239,7 +237,6 @@ function App() {
                     <ClaimText
                       claim={claim}
                       evidence={answer.evidence}
-                      citationNumbers={citationNumbers}
                     />
                   </div>
                 );
