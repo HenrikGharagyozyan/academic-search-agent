@@ -26,8 +26,8 @@ const MARK: Record<ActivityStep["kind"], string> = {
 const FAILED: ActivityStep["kind"][] = ["scrape_failed"];
 
 function markColor(kind: ActivityStep["kind"]): string {
-  if (FAILED.includes(kind)) return "#b91c1c";
-  if (kind === "scrape_ok") return "#15803d";
+  if (FAILED.includes(kind)) return "var(--color-danger-strong)";
+  if (kind === "scrape_ok") return "var(--color-success)";
   return "var(--color-text-muted)";
 }
 

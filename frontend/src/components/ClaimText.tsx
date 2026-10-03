@@ -12,9 +12,18 @@ const CONFIDENCE_STYLES: Record<
   Answer["claims"][number]["confidence"],
   { bg: string; color: string; label: string }
 > = {
-  high: { bg: "#dcfce7", color: "#166534", label: "High confidence" },
-  medium: { bg: "#fef3c7", color: "#92400e", label: "Medium confidence" },
-  low: { bg: "#fee2e2", color: "#991b1b", label: "Low confidence" },
+  // "high" is never shown: a label on every confident claim would be noise.
+  high: { bg: "transparent", color: "inherit", label: "High confidence" },
+  medium: {
+    bg: "var(--color-confidence-medium-bg)",
+    color: "var(--color-confidence-medium-text)",
+    label: "Medium confidence",
+  },
+  low: {
+    bg: "var(--color-confidence-low-bg)",
+    color: "var(--color-confidence-low-text)",
+    label: "Low confidence",
+  },
 };
 
 export function ClaimText({ claim, evidence }: ClaimTextProps) {
