@@ -5,6 +5,12 @@ import { MathText } from "./MathText";
 
 interface ProseProps {
   text: string;
+  /**
+   * Rendered at the very end of the text — inside its last paragraph when it
+   * ends with one, so a claim's source chips sit after its last sentence
+   * rather than on a line of their own.
+   */
+  trailing?: ReactNode;
 }
 
 /**
@@ -27,14 +33,52 @@ function withMath(children: ReactNode): ReactNode {
   );
 }
 
+// Just enough of the HTML syntax tree to place a marker in it.
+interface HastNode {
+  type: string;
+  tagName?: string;
+  properties?: Record<string, unknown>;
+  children?: HastNode[];
+  value?: string;
+}
+
+const TRAILING_CLASS = "prose-trailing";
+
+/**
+ * Puts one empty marker at the end of the document: inside the last paragraph
+ * if the document ends with one, otherwise after whatever it ends with. The
+ * span renderer swaps it for the trailing content. Done on the tree, not by
+ * guessing from the Markdown, so the content always appears exactly once.
+ */
+function appendTrailingMarker() {
+  return (tree: HastNode) => {
+    const marker: HastNode = {
+      type: "element",
+      tagName: "span",
+      properties: { className: [TRAILING_CLASS] },
+      children: [],
+    };
+    const blocks = (tree.children ?? []).filter((node) => node.type === "element");
+    const last = blocks[blocks.length - 1];
+    if (last?.tagName === "p") {
+      last.children = [...(last.children ?? []), { type: "text", value: " " }, marker];
+    } else {
+      tree.children = [...(tree.children ?? []), marker];
+    }
+  };
+}
+
 const MUTED = "var(--color-text-muted)";
 const BORDER = "1px solid var(--color-border)";
 
-export function Prose({ text }: ProseProps) {
+export function Prose({ text, trailing }: ProseProps) {
   return (
     <Markdown
       remarkPlugins={[remarkGfm]}
+      rehypePlugins={trailing ? [appendTrailingMarker] : []}
       components={{
+        span: ({ className, children }) =>
+          className === TRAILING_CLASS ? <>{trailing}</> : <span className={className}>{children}</span>,
         p: ({ children }) => (
           <p style={{ margin: "0 0 10px", lineHeight: 1.7 }}>{withMath(children)}</p>
         ),

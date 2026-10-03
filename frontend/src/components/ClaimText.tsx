@@ -51,10 +51,12 @@ export function ClaimText({ claim, evidence }: ClaimTextProps) {
           {claim.confidence.toUpperCase()}
         </span>
       )}
-      <Prose text={claim.text} />
-      {sources.map((passages) => (
-        <Citation key={passages[0].source_url} passages={passages} />
-      ))}
+      <Prose
+        text={claim.text}
+        trailing={sources.map((passages) => (
+          <Citation key={passages[0].source_url} passages={passages} />
+        ))}
+      />
     </div>
   );
 }
