@@ -29,6 +29,7 @@ def refine_query_node(state: ResearchState, llm: LLMProvider) -> dict:
         recorder.record(
             "refine",
             f"Not enough evidence — searching again for “{new_query}”",
+            detail=shortfall or None,
         )
 
     return {
