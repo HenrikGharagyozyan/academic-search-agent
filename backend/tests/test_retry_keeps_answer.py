@@ -61,3 +61,11 @@ def test_a_retry_that_finds_nothing_keeps_the_first_answer():
     assert [c.text for c in answer.claims] == ["A grounded claim."]
     assert answer.evidence, "the claim's passage must still be there to cite"
 
+
+def test_a_retry_whose_searches_all_fail_keeps_the_first_answer():
+    def outage():
+        raise RuntimeError("provider down")
+
+    answer = _service(second_search=outage).answer("q?")
+
+    assert [c.text for c in answer.claims] == ["A grounded claim."]

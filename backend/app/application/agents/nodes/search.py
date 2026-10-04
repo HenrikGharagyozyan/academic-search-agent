@@ -56,8 +56,14 @@ def search_node(state: ResearchState, search_provider: SearchProvider) -> dict:
             detail=count(len(results), "result"),
         )
 
-    # Every query failing is an outage, not a topic with no coverage.
+    # Every query failing is an outage, not a topic with no coverage — unless
+    # this is a retry: an answer from the first pass is already in hand, and
+    # an outage now should end the run on it rather than replace it with an
+    # error.
     if not per_query:
+        if state.get("kept_answer"):
+            recorder.record("search", "Search failed for every query; keeping the earlier answer")
+            return {"search_results": [], "activity": recorder.steps}
         raise UpstreamServiceError("Search provider failed for every query")
 
     # The question, not the planned queries: every query was planned from it, and
