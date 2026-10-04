@@ -76,3 +76,7 @@ def test_the_source_line_is_named_as_the_record_of_the_year():
     assert 'carries a "Source:" line' in FLAT
     assert "never another year from the text or from memory" in FLAT
     assert '"Source:" line gives its authors and year exactly' in _after_evidence()
+
+
+def test_a_theme_is_told_to_name_a_direction_not_a_source():
+    assert "A theme names the direction, never a source: no author, no year" in FLAT
