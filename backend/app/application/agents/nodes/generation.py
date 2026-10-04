@@ -5,6 +5,8 @@ from app.application.agents.activity import ActivityRecorder, count
 from app.application.agents.state import ResearchState
 from app.core.exceptions import UpstreamServiceError
 from app.domain.answers import ClaimsResponse
+from app.domain.attribution import correct_years
+from app.domain.documents import Chunk
 from app.domain.text.cleanup import find_evidence_id_leak, strip_evidence_ids
 from app.domain.text.equations import (
     display_equations,
@@ -58,6 +60,37 @@ def _texts(result: ClaimsResponse) -> list[str]:
 def _leak(result: ClaimsResponse) -> str | None:
     """An evidence id the stripping missed, anywhere the reader would see it."""
     return next((leak for t in _texts(result) if (leak := find_evidence_id_leak(t))), None)
+
+
+def _with_source_years(result: ClaimsResponse, chunks: list[Chunk]) -> tuple[ClaimsResponse, int]:
+    """The answer with every attribution's year set to its source's record.
+
+    A claim is checked against the sources it cites; the summary and
+    conclusion, which cite nothing, against every passage the model was given.
+    """
+    by_id = {c.chunk_id: c.citation for c in chunks}
+    everything = list(by_id.values())
+    fixed = 0
+
+    def correct(text: str, citations) -> str:
+        nonlocal fixed
+        text, changed = correct_years(text, citations)
+        fixed += changed
+        return text
+
+    claims = []
+    for claim in result.claims:
+        cited = [by_id[e] for e in claim.evidence_ids if e in by_id]
+        claims.append(claim.model_copy(update={
+            "text": correct(claim.text, cited),
+            "theme": correct(claim.theme, cited),
+        }))
+
+    return result.model_copy(update={
+        "summary": correct(result.summary, everything),
+        "claims": claims,
+        "conclusion": correct(result.conclusion, everything),
+    }), fixed
 
 
 @dataclass
@@ -162,8 +195,10 @@ def generate_claims_node(state: ResearchState, llm: LLMProvider) -> dict:
         )
         return empty | {"activity": recorder.steps}
 
-    result = best.result
+    result, corrected = _with_source_years(best.result, state["selected_chunks"])
     detail = f"answered as a {result.answer_shape} question"
+    if corrected:
+        detail += f"; {count(corrected, 'year')} set to the source's own record"
     if best.damaged:
         # Not withheld: the prose is sound and one symbol is not worth the
         # answer. But the reader is told, because a formula missing a symbol
