@@ -60,11 +60,40 @@ def test_generate_answer_passes_chunks_as_an_evidence_block(llm):
     assert "ev_1" in rendered and "body text" in rendered
 
 
+def test_a_passage_with_a_citation_record_is_shown_with_its_source(llm):
+    """The year an attribution gives is the page's, not the model's guess."""
+    from app.domain.citation import SourceCitation
+
+    structured_llm(llm).invoke.return_value = ClaimsResponse(summary="s", claims=[], conclusion="c")
+    cited = make_chunk("ev_1", "body text").model_copy(
+        update={"citation": SourceCitation(authors=["Cheng, A.", "Li, B.", "Wu, C."], year=2023)}
+    )
+    bare = make_chunk("ev_2", "other text")
+
+    build_provider(llm).generate_answer("q?", [cited, bare])
+    rendered = "".join(m.content for m in structured_llm(llm).invoke.call_args.args[0].to_messages())
+
+    assert "[evidence_id: ev_1]\nSource: Cheng et al. (2023)\nbody text" in rendered
+    assert "[evidence_id: ev_2]\nother text" in rendered
+
+
 def test_refine_query_reads_text_not_content(llm):
     # A model returning content blocks makes `.content` a list; `.text` flattens both.
     llm.invoke.return_value = AIMessage(content=[{"type": "text", "text": "  refined  "}])
 
-    assert build_provider(llm).refine_query("q?", "old query") == "refined"
+    assert build_provider(llm).refine_query("q?", ["old query"], "too thin") == "refined"
+
+
+def test_refine_query_shows_the_model_the_searches_run_and_the_shortfall(llm):
+    llm.invoke.return_value = AIMessage(content="new query")
+
+    build_provider(llm).refine_query(
+        "how is X measured?", ["X measurement", "X review"], "It needed: the calibration step"
+    )
+    rendered = " ".join(m.content for m in llm.invoke.call_args.args[0].to_messages())
+
+    assert "- X measurement" in rendered and "- X review" in rendered
+    assert "It needed: the calibration step" in rendered
 
 
 def test_grade_relevance_returns_the_structured_grade(llm):
@@ -188,3 +217,37 @@ def test_create_llm_provider_builds_the_configured_provider(monkeypatch):
     assert provider.model_name == "some/model"
     assert built["model"] == "some/model"
     assert built["api_key"] == "or-key"
+
+
+def test_openrouter_requests_are_capped(monkeypatch):
+    """Without a cap OpenRouter reserves the model's maximum output per request
+    and refuses it with 402 once the balance is below that, which the pipeline
+    swallowed into "no reliable sources"."""
+    caps = []
+
+    def fake_chat_openai(**kwargs):
+        caps.append(kwargs["max_tokens"])
+        return MagicMock()
+
+    monkeypatch.setattr("app.infrastructure.llm.openrouter.ChatOpenAI", fake_chat_openai)
+    base = dict(
+        _env_file=None, firecrawl_api_key="x", gemini_api_key="x",
+        openrouter_api_key="or-key", llm_provider="openrouter",
+    )
+
+    # The answer gets the configured ceiling; planning and grading, which run
+    # several at once and reply in a few hundred tokens, get a small one.
+    create_llm_provider(Settings(**base))
+    assert caps == [8192, 1024]
+
+    caps.clear()
+    create_llm_provider(Settings(**base, llm_max_tokens=512))
+    assert caps == [512, 512]
+
+
+def test_only_the_answer_uses_the_long_model():
+    long_llm, short_llm = MagicMock(), MagicMock()
+    LangChainLLMProvider(long_llm, short_llm=short_llm, provider_name="p", model_name="m")
+
+    long_llm.with_structured_output.assert_called_once_with(ClaimsResponse)
+    assert short_llm.with_structured_output.call_count == 3

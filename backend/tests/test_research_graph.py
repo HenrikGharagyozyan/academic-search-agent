@@ -6,7 +6,7 @@ from app.domain.search import ScrapedPage, SearchResult
 from app.domain.answers import Claim, ClaimsResponse
 
 
-def test_graph_runs_end_to_end_with_mocks(keep_all_chunks_relevant):
+def test_graph_runs_end_to_end_with_mocks(keep_all_chunks_relevant, answer_is_satisfactory):
     mock_search = MagicMock()
     mock_search.search.return_value = [
         SearchResult(title="Paper", url="https://example.com", snippet="...")
@@ -17,6 +17,7 @@ def test_graph_runs_end_to_end_with_mocks(keep_all_chunks_relevant):
 
     mock_llm = MagicMock()
     mock_llm.grade_relevance.side_effect = keep_all_chunks_relevant
+    mock_llm.grade_answer_quality.return_value = answer_is_satisfactory
 
     def fake_generate_answer(question, evidence_chunks):
         return ClaimsResponse(
@@ -56,7 +57,7 @@ def test_graph_runs_end_to_end_with_mocks(keep_all_chunks_relevant):
     assert len(result["claims"]) == 1
 
 
-def test_graph_retries_when_no_evidence_found_then_succeeds(keep_all_chunks_relevant):
+def test_graph_retries_when_no_evidence_found_then_succeeds(keep_all_chunks_relevant, answer_is_satisfactory):
     mock_search = MagicMock()
     mock_search.search.return_value = [
         SearchResult(title="Paper", url="https://example.com", snippet="...")
@@ -67,6 +68,7 @@ def test_graph_retries_when_no_evidence_found_then_succeeds(keep_all_chunks_rele
 
     mock_llm = MagicMock()
     mock_llm.grade_relevance.side_effect = keep_all_chunks_relevant
+    mock_llm.grade_answer_quality.return_value = answer_is_satisfactory
     mock_llm.refine_query.return_value = "refined query"
 
     call_count = {"n": 0}
@@ -121,7 +123,7 @@ def test_graph_retries_when_no_evidence_found_then_succeeds(keep_all_chunks_rele
     mock_llm.refine_query.assert_called_once()
 
 
-def test_graph_stops_after_max_retries_with_no_evidence(keep_all_chunks_relevant):
+def test_graph_stops_after_max_retries_with_no_evidence(keep_all_chunks_relevant, answer_is_satisfactory):
     mock_search = MagicMock()
     mock_search.search.return_value = [
         SearchResult(title="Paper", url="https://example.com", snippet="...")
@@ -132,6 +134,7 @@ def test_graph_stops_after_max_retries_with_no_evidence(keep_all_chunks_relevant
 
     mock_llm = MagicMock()
     mock_llm.grade_relevance.side_effect = keep_all_chunks_relevant
+    mock_llm.grade_answer_quality.return_value = answer_is_satisfactory
     mock_llm.refine_query.return_value = "refined query"
     mock_llm.generate_answer.return_value = ClaimsResponse(
         summary="Ungrounded summary",

@@ -9,10 +9,22 @@ from app.core.config import get_settings
 
 logger = logging.getLogger(__name__)
 
-MAX_EMBED_RETRIES = 2
+MAX_EMBED_RETRIES = 3
 RETRY_BACKOFF_SECONDS = 5.0
 EMBED_CACHE_MAXSIZE = 2000
 EMBED_CACHE_TTL_SECONDS = 3600
+
+# Google's own per-request maximum. The batching matters less for the request
+# count — the client splits large calls anyway — than for what a rate-limited
+# retry costs: wrapping one call around a thousand texts meant a 429 on the
+# seventh request re-sent the six hundred texts already embedded, twice, before
+# giving up. Batching here keeps a retry to the batch that failed.
+EMBED_BATCH_SIZE = 100
+
+# Pause between batches. Zero by default because the retry handles a 429
+# correctly now; raise it if a key's per-minute quota is the binding limit,
+# which is cheaper than failing and falling back to unranked passages.
+EMBED_BATCH_PAUSE_SECONDS = 0.0
 
 
 def _is_rate_limit_error(exc: Exception) -> bool:
@@ -35,11 +47,18 @@ class GeminiEmbeddingsProvider:
         keys = [self._cache_key("d", t) for t in texts]
         missing_idx = [i for i, k in enumerate(keys) if k not in self._cache]
 
-        if missing_idx:
-            missing_texts = [texts[i] for i in missing_idx]
-            fresh = self._call_with_retry(self._embeddings.embed_documents, missing_texts)
-            for i, embedding in zip(missing_idx, fresh):
+        # Each batch is cached as it arrives, so a failure part-way through
+        # leaves the work already done behind it rather than discarding it.
+        for start in range(0, len(missing_idx), EMBED_BATCH_SIZE):
+            batch_idx = missing_idx[start : start + EMBED_BATCH_SIZE]
+            fresh = self._call_with_retry(
+                self._embeddings.embed_documents, [texts[i] for i in batch_idx]
+            )
+            for i, embedding in zip(batch_idx, fresh):
                 self._cache[keys[i]] = embedding
+
+            if EMBED_BATCH_PAUSE_SECONDS and start + EMBED_BATCH_SIZE < len(missing_idx):
+                time.sleep(EMBED_BATCH_PAUSE_SECONDS)
 
         return [self._cache[k] for k in keys]
 

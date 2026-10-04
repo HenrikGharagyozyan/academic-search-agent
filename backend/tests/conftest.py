@@ -16,7 +16,7 @@ os.environ["LLM_PROVIDER"] = "gemini"
 
 from app.api.deps import get_document_service, get_research_service, get_search_service  # noqa: E402
 from app.core.config import get_settings  # noqa: E402
-from app.domain.grading import RelevanceGrade  # noqa: E402
+from app.domain.grading import AnswerQualityGrade, RelevanceGrade  # noqa: E402
 from app.main import app  # noqa: E402
 
 
@@ -37,6 +37,18 @@ def keep_all_chunks_relevant():
         )
 
     return _grade
+
+
+@pytest.fixture
+def answer_is_satisfactory():
+    """return_value for llm.grade_answer_quality: the reviewer approves.
+
+    A bare MagicMock used to pass this check by accident — its is_satisfactory
+    attribute is truthy — while its reasoning was a MagicMock too. Anything that
+    reads the reasoning then gets a mock where a string is declared, so pipeline
+    tests state the verdict explicitly.
+    """
+    return AnswerQualityGrade(is_satisfactory=True, reasoning="on topic and useful")
 
 
 @pytest.fixture(autouse=True)

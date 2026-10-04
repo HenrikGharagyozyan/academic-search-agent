@@ -3,6 +3,8 @@ and the chunks those lines are packed into."""
 
 from pydantic import BaseModel
 
+from app.domain.citation import SourceCitation
+
 
 class DocumentLine(BaseModel):
     line_number: int
@@ -25,3 +27,5 @@ class Chunk(BaseModel):
     end_line: int
     source_url: str
     title: str
+    # The page's own authors and year, carried with every passage cut from it.
+    citation: SourceCitation = SourceCitation()

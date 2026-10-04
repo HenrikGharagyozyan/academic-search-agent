@@ -1,9 +1,29 @@
 import logging
+from concurrent.futures import ThreadPoolExecutor
 
+from app.application.agents.activity import ActivityRecorder, count
+from app.application.agents.constants import GRADE_BATCH_SIZE
 from app.application.agents.state import ResearchState
+from app.core.exceptions import UpstreamServiceError
+from app.domain.documents import Chunk
+from app.domain.grading import AnswerQualityGrade
 from app.ports.llm import LLMProvider
 
 logger = logging.getLogger(__name__)
+
+
+def _judge_batch(
+    llm: LLMProvider, question: str, batch: list[Chunk]
+) -> tuple[list[str], str] | None:
+    """The ids this batch's judge kept, or None if the call failed."""
+    try:
+        grade = llm.grade_relevance(question, batch)
+    except UpstreamServiceError:
+        raise
+    except Exception:
+        logger.warning("Relevance grading failed for a batch", exc_info=True)
+        return None
+    return list(grade.relevant_chunk_ids), grade.reasoning
 
 
 def grade_relevance_node(state: ResearchState, llm: LLMProvider) -> dict:
@@ -11,41 +31,129 @@ def grade_relevance_node(state: ResearchState, llm: LLMProvider) -> dict:
     if not selected:
         return {"selected_chunks": []}
 
-    try:
-        grade = llm.grade_relevance(state["question"], selected)
-    except Exception:
-        logger.warning("Relevance grading failed, keeping all chunks", exc_info=True)
-        return {}
+    recorder = ActivityRecorder(attempt=state.get("retry_count", 0))
+
+    # Judged in batches, not in one call. A single call over forty passages kept
+    # under a fifth of them; batches of eight keep about half. The judge cannot
+    # weigh forty heterogeneous passages at once, and the prompt is not the
+    # lever — rewriting it moved the count by one.
+    batches = [
+        selected[i : i + GRADE_BATCH_SIZE]
+        for i in range(0, len(selected), GRADE_BATCH_SIZE)
+    ]
+
+    with ThreadPoolExecutor(max_workers=len(batches)) as executor:
+        outcomes = list(
+            executor.map(lambda b: _judge_batch(llm, state["question"], b), batches)
+        )
+
+    relevant_ids: set[str] = set()
+    reasons: list[str] = []
+    failed = 0
+
+    for batch, outcome in zip(batches, outcomes):
+        if outcome is None:
+            # A batch whose judge could not be reached keeps its passages, so one
+            # failed call costs nothing rather than discarding what it held.
+            failed += 1
+            relevant_ids.update(c.chunk_id for c in batch)
+            continue
+        ids, reasoning = outcome
+        relevant_ids.update(ids)
+        if reasoning:
+            reasons.append(reasoning)
+
+    kept = [c for c in selected if c.chunk_id in relevant_ids]
 
     logger.info(
-        "Relevance grade: %d/%d chunks kept. Reasoning: %s",
-        len(grade.relevant_chunk_ids), len(selected), grade.reasoning,
+        "Relevance grade: %d/%d chunks kept across %d batches (%d failed)",
+        len(kept), len(selected), len(batches), failed,
     )
 
-    relevant_ids = set(grade.relevant_chunk_ids)
-    # An empty result is kept as-is: an answer built on chunks the judge
+    detail = " · ".join(reasons) or None
+    if failed:
+        detail = f"{count(failed, 'batch', 'batches')} could not be judged; " + (detail or "")
+
+    recorder.record(
+        "grade_relevance",
+        f"Judged {count(len(selected), 'passage')} in "
+        f"{count(len(batches), 'batch', 'batches')}, {len(kept)} on topic",
+        detail=detail,
+    )
+
+    # An empty result is kept as-is: an answer built on passages the judge
     # rejected is worse than no answer at all.
-    return {"selected_chunks": [c for c in selected if c.chunk_id in relevant_ids]}
+    return {"selected_chunks": kept, "activity": recorder.steps}
+
+
+# Grounding failed before the grader saw anything: every claim cited a passage
+# that was never selected, or there were no claims at all.
+NO_GROUNDED_CLAIMS = (
+    "No claim could be grounded in the passages that were read: the pages found "
+    "did not address the question, or said too little about it to cite."
+)
+
+_PROBLEMS = {
+    "off_topic": "about something other than what was asked",
+    "too_thin": "on topic but too thin",
+    "missing_aspect": "on topic but missing part of the question",
+    "non_substantive_evidence": "built on non-substantive pages",
+    "not_a_research_question": "not something a literature search can answer",
+}
+
+
+def describe_shortfall(grade: AnswerQualityGrade) -> str:
+    """The grader's verdict as one sentence a query rewrite can act on."""
+    verdict = _PROBLEMS.get(grade.problem, "judged insufficient")
+    needed = grade.missing.strip() or grade.reasoning.strip()
+    return f"The answer was {verdict}." + (f" It needed: {needed}" if needed else "")
 
 
 def grade_answer_node(state: ResearchState, llm: LLMProvider) -> dict:
+    recorder = ActivityRecorder(attempt=state.get("retry_count", 0))
+
     if not state["claims"]:
-        return {"evidence_sufficient": False}
+        recorder.record("grade_answer", "No grounded claims to review")
+        return {
+            "evidence_sufficient": False,
+            "shortfall": NO_GROUNDED_CLAIMS,
+            "activity": recorder.steps,
+        }
 
     try:
         grade = llm.grade_answer_quality(
             state["question"], state["summary"], state["claims"], state["conclusion"]
         )
+    except UpstreamServiceError:
+        raise
     except Exception:
         logger.warning("Answer quality grading failed, trusting groundedness check", exc_info=True)
-        return {}
+        recorder.record(
+            "grade_answer",
+            "Could not review the answer, trusting the groundedness check",
+        )
+        return {"activity": recorder.steps}
 
     logger.info(
         "Answer quality grade: satisfactory=%s. Reasoning: %s",
         grade.is_satisfactory, grade.reasoning,
     )
 
-    if not grade.is_satisfactory:
-        return {"evidence_sufficient": False}
+    recorder.record(
+        "grade_answer",
+        "Reviewed the answer: satisfactory" if grade.is_satisfactory
+        else "Reviewed the answer: not good enough",
+        detail=grade.reasoning or None,
+    )
 
-    return {}
+    if not grade.is_satisfactory:
+        # Kept for refine_query: without it the rewrite knew only that the
+        # answer failed, and rephrased the question it had already searched.
+        return {
+            "evidence_sufficient": False,
+            "shortfall": describe_shortfall(grade),
+            "shortfall_problem": grade.problem,
+            "activity": recorder.steps,
+        }
+
+    return {"activity": recorder.steps}

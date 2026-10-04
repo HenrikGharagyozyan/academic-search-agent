@@ -12,6 +12,7 @@ from typing import Protocol, runtime_checkable
 from app.domain.answers import Claim, ClaimsResponse
 from app.domain.documents import Chunk
 from app.domain.grading import AnswerQualityGrade, RelevanceGrade
+from app.domain.query import QueryPlan
 
 
 @runtime_checkable
@@ -26,11 +27,21 @@ class LLMProvider(Protocol):
     def model_name(self) -> str:
         """The model actually in use, as the vendor names it."""
 
+    def plan_searches(self, question: str, count: int, recent: bool) -> QueryPlan:
+        """Turns one question into several deliberately different searches."""
+
     def generate_answer(self, question: str, evidence: Sequence[Chunk]) -> ClaimsResponse:
         """Writes a grounded answer citing only the given chunks."""
 
-    def refine_query(self, question: str, previous_query: str) -> str:
-        """Rewrites a search query that did not yield usable evidence."""
+    def refine_query(
+        self, question: str, previous_queries: Sequence[str], shortfall: str
+    ) -> str:
+        """Writes a new search aimed at what the last answer lacked.
+
+        ``previous_queries`` are the searches already run, so the new one does
+        not repeat them; ``shortfall`` is why the answer was judged
+        insufficient.
+        """
 
     def grade_relevance(self, question: str, chunks: Sequence[Chunk]) -> RelevanceGrade:
         """Picks the chunks that genuinely bear on the question."""

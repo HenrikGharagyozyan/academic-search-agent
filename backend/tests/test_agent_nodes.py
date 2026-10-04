@@ -1,7 +1,7 @@
 from unittest.mock import MagicMock
 import pytest
 
-from app.application.agents.constants import MAX_SOURCES
+from app.application.agents.constants import RESULTS_PER_QUERY
 from app.application.agents.nodes import generate_claims_node, retrieve_and_chunk_node, search_node
 from app.domain.search import ScrapedPage, SearchResult
 from app.core.exceptions import UpstreamServiceError
@@ -19,7 +19,9 @@ def test_search_node_calls_firecrawl_search():
     )
 
     assert len(result["search_results"]) == 1
-    mock_search.search.assert_called_once_with("test question", limit=MAX_SOURCES)
+    mock_search.search.assert_called_once_with(
+        "test question", limit=RESULTS_PER_QUERY, since_year=None
+    )
 
 
 def test_retrieve_and_chunk_node_skips_failed_scrape():

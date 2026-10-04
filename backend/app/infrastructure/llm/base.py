@@ -5,32 +5,81 @@ structured output and the retry policy live here, so adding a provider cannot
 quietly change how the pipeline behaves.
 """
 
-from collections.abc import Sequence
+import functools
+from collections.abc import Callable, Sequence
+from typing import ParamSpec, TypeVar
 
 from langchain_core.language_models import BaseChatModel
 
+from app.core.exceptions import ProviderCreditsExhausted
 from app.domain.answers import Claim, ClaimsResponse
+from app.domain.citation import short_attribution
 from app.domain.documents import Chunk
 from app.domain.grading import AnswerQualityGrade, RelevanceGrade
+from app.domain.query import QueryPlan
+from app.domain.text.latex import to_channel_notation
 from app.infrastructure.llm.prompts import (
     ANSWER_PROMPT,
     ANSWER_QUALITY_PROMPT,
+    EXPANSION_PROMPT,
+    NO_RECENCY_INSTRUCTION,
+    RECENCY_INSTRUCTION,
     REFINE_PROMPT,
     RELEVANCE_GRADE_PROMPT,
 )
-from app.infrastructure.llm.retry import llm_retry
+from app.infrastructure.llm.retry import is_billing_error, llm_retry
+
+P = ParamSpec("P")
+R = TypeVar("R")
+
+
+def _billing_surfaces(method: Callable[P, R]) -> Callable[P, R]:
+    """Turns a refusal to pay into an error the reader is shown.
+
+    The nodes treat a failed model call as a degraded step and carry on, which
+    is right for an outage in one call and wrong for an empty balance: every
+    call of the run fails, and the answer arrives as "no reliable sources".
+    """
+
+    @functools.wraps(method)
+    def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
+        try:
+            return method(*args, **kwargs)
+        except Exception as exc:
+            if not is_billing_error(exc):
+                raise
+            provider = getattr(args[0], "provider_name", "the language model provider")
+            raise ProviderCreditsExhausted(
+                f"The language model provider ({provider}) is out of credits and "
+                "refused the request. Top up the account and try again."
+            ) from exc
+
+    return wrapper
 
 
 class LangChainLLMProvider:
     """Base adapter for any model reachable through a LangChain chat interface."""
 
-    def __init__(self, llm: BaseChatModel, *, provider_name: str, model_name: str) -> None:
-        self._llm = llm
+    def __init__(
+        self,
+        llm: BaseChatModel,
+        *,
+        provider_name: str,
+        model_name: str,
+        short_llm: BaseChatModel | None = None,
+    ) -> None:
+        """``short_llm`` is the same model configured for the calls whose reply
+        is a few hundred tokens — planning, grading, rewriting a query — when
+        the vendor charges for the response ceiling rather than the response.
+        Only the answer itself needs a long one."""
+        short_llm = short_llm or llm
+        self._llm = short_llm
         self._provider_name = provider_name
         self._model_name = model_name
         self._answer_llm = llm.with_structured_output(ClaimsResponse)
-        self._relevance_llm = llm.with_structured_output(RelevanceGrade)
-        self._quality_llm = llm.with_structured_output(AnswerQualityGrade)
+        self._plan_llm = short_llm.with_structured_output(QueryPlan)
+        self._relevance_llm = short_llm.with_structured_output(RelevanceGrade)
+        self._quality_llm = short_llm.with_structured_output(AnswerQualityGrade)
 
     @property
     def provider_name(self) -> str:
@@ -44,22 +93,63 @@ class LangChainLLMProvider:
     def _as_block(chunks: Sequence[Chunk], label: str) -> str:
         return "\n\n".join(f"[{label}: {c.chunk_id}]\n{c.text}" for c in chunks)
 
+    @staticmethod
+    def _as_evidence_block(chunks: Sequence[Chunk]) -> str:
+        """Each passage under its id and, when its page declares one, its
+        source's own authors and year — the record an attribution is taken
+        from, so the year is the page's and not the model's guess."""
+        parts = []
+        for c in chunks:
+            source = short_attribution(c.citation)
+            header = f"[evidence_id: {c.chunk_id}]" + (f"\nSource: {source}" if source else "")
+            parts.append(f"{header}\n{c.text}")
+        return "\n\n".join(parts)
+
+    @classmethod
+    def _as_evidence(cls, chunks: Sequence[Chunk]) -> str:
+        # In @ notation, because the model copies the notation it reads: shown
+        # backslashes, it wrote backslashes, and JSON ate them.
+        return to_channel_notation(cls._as_evidence_block(chunks))
+
+    @_billing_surfaces
+    @llm_retry
+    def plan_searches(self, question: str, count: int, recent: bool) -> QueryPlan:
+        prompt = EXPANSION_PROMPT.invoke(
+            {
+                "question": question,
+                "query_count": count,
+                "recency_instruction": (
+                    RECENCY_INSTRUCTION if recent else NO_RECENCY_INSTRUCTION
+                ),
+            }
+        )
+        return self._plan_llm.invoke(prompt)
+
+    @_billing_surfaces
     @llm_retry
     def generate_answer(self, question: str, evidence: Sequence[Chunk]) -> ClaimsResponse:
         prompt = ANSWER_PROMPT.invoke(
-            {"question": question, "evidence_block": self._as_block(evidence, "evidence_id")}
+            {"question": question, "evidence_block": self._as_evidence(evidence)}
         )
         return self._answer_llm.invoke(prompt)
 
+    @_billing_surfaces
     @llm_retry
-    def refine_query(self, question: str, previous_query: str) -> str:
+    def refine_query(
+        self, question: str, previous_queries: Sequence[str], shortfall: str
+    ) -> str:
         prompt = REFINE_PROMPT.invoke(
-            {"question": question, "previous_query": previous_query}
+            {
+                "question": question,
+                "previous_queries": "\n".join(f"- {q}" for q in previous_queries),
+                "shortfall": shortfall or "not recorded",
+            }
         )
         # `.text` over `.content`: content is a string for some models and a list
         # of content blocks for others, and only `.text` flattens both.
         return self._llm.invoke(prompt).text.strip()
 
+    @_billing_surfaces
     @llm_retry
     def grade_relevance(self, question: str, chunks: Sequence[Chunk]) -> RelevanceGrade:
         prompt = RELEVANCE_GRADE_PROMPT.invoke(
@@ -67,6 +157,7 @@ class LangChainLLMProvider:
         )
         return self._relevance_llm.invoke(prompt)
 
+    @_billing_surfaces
     @llm_retry
     def grade_answer_quality(
         self, question: str, summary: str, claims: Sequence[Claim], conclusion: str

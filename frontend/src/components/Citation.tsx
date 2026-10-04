@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import type { AnswerEvidence } from "../types/answer";
 import { computePopupPosition, type PopupPosition } from "../utils/popupPosition";
+import { faviconUrl, siteName } from "../utils/sources";
 
 interface CitationProps {
-  index: number;
-  evidence: AnswerEvidence;
+  /** Every passage the claim cites from one page. */
+  passages: AnswerEvidence[];
 }
 
 /**
@@ -24,15 +25,107 @@ function truncateText(text: string, maxLines: number = 5): { shown: string; trun
   return { shown: lines.slice(0, maxLines).join("\n"), truncated: true };
 }
 
-export function Citation({ index, evidence }: CitationProps) {
-  const [open, setOpen] = useState(false);
+/** One cited passage, collapsed to its first lines until asked for more. */
+function Quote({ passage, onResize }: { passage: AnswerEvidence; onResize: () => void }) {
   const [expanded, setExpanded] = useState(false);
+  const quote = readableQuote(passage.text);
+  const { shown, truncated } = truncateText(quote);
+
+  return (
+    <div style={{ marginBottom: 10 }}>
+      <div style={{ color: "var(--color-text-muted)", marginBottom: 4, fontSize: 12 }}>
+        Lines {passage.start_line}–{passage.end_line}
+      </div>
+      <div
+        style={{
+          whiteSpace: "pre-wrap",
+          // Raw markdown quotes carry long unbreakable URLs that would
+          // otherwise stretch the popup far past its width.
+          overflowWrap: "anywhere",
+          color: "var(--color-text)",
+          background: "var(--color-accent-bg)",
+          padding: "8px 10px",
+          borderRadius: 6,
+          fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+          fontSize: 12,
+        }}
+      >
+        {expanded ? quote : shown}
+        {truncated && !expanded && "…"}
+      </div>
+      {truncated && (
+        <button
+          onClick={() => {
+            setExpanded((e) => !e);
+            onResize();
+          }}
+          style={{
+            background: "none",
+            border: "none",
+            color: "var(--color-accent)",
+            cursor: "pointer",
+            padding: 0,
+            marginTop: 4,
+            fontSize: 12,
+            fontWeight: 600,
+            display: "block",
+          }}
+        >
+          {expanded ? "Show less" : "Show full quote"}
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** The site's icon, or its initial when the icon cannot be fetched. */
+function SiteIcon({ url, name }: { url: string; name: string }) {
+  const [failed, setFailed] = useState(false);
+  const size = 12;
+
+  if (failed) {
+    return (
+      <span
+        aria-hidden
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          width: size,
+          height: size,
+          borderRadius: 3,
+          background: "var(--color-border)",
+          color: "var(--color-text)",
+          fontSize: 8,
+          fontWeight: 700,
+          flexShrink: 0,
+        }}
+      >
+        {name.charAt(0).toUpperCase()}
+      </span>
+    );
+  }
+  return (
+    <img
+      src={faviconUrl(url)}
+      alt=""
+      width={size}
+      height={size}
+      loading="lazy"
+      onError={() => setFailed(true)}
+      style={{ borderRadius: 2, flexShrink: 0 }}
+    />
+  );
+}
+
+export function Citation({ passages }: CitationProps) {
+  const [open, setOpen] = useState(false);
+  // Bumped when a quote expands, so the popup is placed again for its new height.
+  const [layout, setLayout] = useState(0);
   const [position, setPosition] = useState<PopupPosition | null>(null);
   const containerRef = useRef<HTMLSpanElement>(null);
-
-  const quote = readableQuote(evidence.text);
-  const { shown, truncated } = truncateText(quote);
-  const displayText = expanded ? quote : shown;
+  const first = passages[0];
+  const name = siteName(first.source_url);
 
   // Close the popup when clicking anywhere outside this component
   useEffect(() => {
@@ -64,40 +157,43 @@ export function Citation({ index, evidence }: CitationProps) {
       window.removeEventListener("resize", reposition);
       window.removeEventListener("scroll", reposition, true);
     };
-  }, [open, expanded]);
+  }, [open, layout]);
 
   function toggleOpen() {
-    setOpen((wasOpen) => {
-      // A reopened popup starts collapsed again.
-      if (wasOpen) setExpanded(false);
-      return !wasOpen;
-    });
+    // Closing unmounts the quotes, so a reopened popup starts collapsed again.
+    setOpen((wasOpen) => !wasOpen);
   }
 
   return (
     <span ref={containerRef} style={{ position: "relative", display: "inline-block" }}>
       <button
         onClick={toggleOpen}
+        title={first.title || name}
+        aria-label={`Source: ${name}`}
         style={{
           display: "inline-flex",
           alignItems: "center",
-          justifyContent: "center",
-          minWidth: 20,
+          gap: 5,
           height: 20,
-          padding: "0 5px",
-          marginLeft: 3,
-          border: "1px solid var(--color-border)",
+          maxWidth: 160,
+          padding: "0 8px 0 5px",
+          marginLeft: 4,
+          border: `1px solid ${open ? "var(--color-accent)" : "var(--color-border)"}`,
           borderRadius: 999,
-          background: open ? "var(--color-accent)" : "var(--color-accent-bg)",
-          color: open ? "white" : "var(--color-accent)",
+          background: open ? "var(--color-accent-bg)" : "var(--color-chip)",
+          color: open ? "var(--color-accent)" : "var(--color-text-muted)",
           fontSize: 11,
-          fontWeight: 700,
+          fontWeight: 500,
+          lineHeight: 1,
           cursor: "pointer",
           verticalAlign: "middle",
           transition: "all 0.12s",
         }}
       >
-        {index}
+        <SiteIcon url={first.source_url} name={name} />
+        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {name}
+        </span>
       </button>
 
       {open && position && (
@@ -124,54 +220,22 @@ export function Citation({ index, evidence }: CitationProps) {
           <div
             style={{
               fontWeight: 600,
-              marginBottom: 4,
+              marginBottom: 8,
               color: "var(--color-text)",
               overflowWrap: "anywhere",
             }}
           >
-            {evidence.title}
+            {first.title}
           </div>
-          <div style={{ color: "var(--color-text-muted)", marginBottom: 10, fontSize: 12 }}>
-            Lines {evidence.start_line}–{evidence.end_line}
-          </div>
-          <div
-            style={{
-              whiteSpace: "pre-wrap",
-              // Raw markdown quotes carry long unbreakable URLs that would
-              // otherwise stretch the popup far past its width.
-              overflowWrap: "anywhere",
-              marginBottom: 10,
-              color: "var(--color-text)",
-              background: "var(--color-accent-bg)",
-              padding: "8px 10px",
-              borderRadius: 6,
-              fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
-              fontSize: 12,
-            }}
-          >
-            {displayText}
-            {truncated && !expanded && "…"}
-          </div>
-          {truncated && (
-            <button
-              onClick={() => setExpanded((e) => !e)}
-              style={{
-                background: "none",
-                border: "none",
-                color: "var(--color-accent)",
-                cursor: "pointer",
-                padding: 0,
-                fontSize: 12,
-                fontWeight: 600,
-                marginBottom: 10,
-                display: "block",
-              }}
-            >
-              {expanded ? "Show less" : "Show full quote"}
-            </button>
-          )}
+          {passages.map((passage) => (
+            <Quote
+              key={passage.chunk_id}
+              passage={passage}
+              onResize={() => setLayout((n) => n + 1)}
+            />
+          ))}
           <a
-            href={evidence.source_url}
+            href={first.source_url}
             target="_blank"
             rel="noopener noreferrer"
             style={{

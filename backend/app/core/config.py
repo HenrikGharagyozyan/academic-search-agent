@@ -18,6 +18,11 @@ class Settings(BaseSettings):
     llm_provider: ProviderName = "gemini"
     # Empty means "whatever the registry lists as this provider's default".
     llm_model: str = ""
+    # Ceiling on each response. OpenRouter reserves credit for the ceiling before
+    # the request runs, and with none set it reserves the model's maximum — 16384
+    # tokens for gpt-4o-mini — so every call was refused with 402 on a balance
+    # that would have covered the few thousand tokens an answer actually takes.
+    llm_max_tokens: int = Field(default=8192, gt=0)
 
     embedding_model: str = "models/gemini-embedding-001"
 

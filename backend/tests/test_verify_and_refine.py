@@ -1,6 +1,7 @@
 from unittest.mock import MagicMock
 
-from app.application.agents.nodes import verify_evidence_node
+from app.application.agents.constants import ROUTE_END, ROUTE_REFINE
+from app.application.agents.nodes import should_refine, verify_evidence_node
 from app.application.agents.nodes import refine_query_node
 from app.domain.answers import Claim
 from app.domain.documents import Chunk
@@ -73,3 +74,51 @@ def test_refine_query_node_keeps_previous_query_on_gemini_failure():
 
     assert result["search_query"] == "old query"
     assert result["retry_count"] == 2
+
+# --- the reason for a retry reaches the rewrite ------------------------------
+
+
+def test_refine_is_told_the_searches_already_run_and_why_the_answer_fell_short():
+    """With only the question and its last query the rewrite could only
+    rephrase; it needs what was searched and what was missing."""
+    mock_llm = MagicMock()
+    mock_llm.refine_query.return_value = "pegRNA design prime editing"
+
+    state = {
+        "question": "how does prime editing work?",
+        "search_query": "how does prime editing work?",
+        "search_queries": ["how does prime editing work?", "prime editing review"],
+        "shortfall": "The answer was on topic but missing part of the question. It needed: the pegRNA",
+        "retry_count": 0,
+    }
+    result = refine_query_node(state, llm=mock_llm)
+
+    question, searched, shortfall = mock_llm.refine_query.call_args.args
+    assert searched == ["how does prime editing work?", "prime editing review"]
+    assert "It needed: the pegRNA" in shortfall
+    assert result["activity"][0].detail == state["shortfall"]
+
+
+def test_refine_without_planned_queries_falls_back_to_the_last_query():
+    mock_llm = MagicMock()
+    mock_llm.refine_query.return_value = "new"
+
+    refine_query_node({"question": "q?", "search_query": "old", "retry_count": 0}, llm=mock_llm)
+
+    assert mock_llm.refine_query.call_args.args[1:] == (["old"], "")
+
+
+def test_a_question_research_cannot_answer_is_not_searched_again():
+    state = {
+        "evidence_sufficient": False,
+        "retry_count": 0,
+        "shortfall_problem": "not_a_research_question",
+    }
+
+    assert should_refine(state) == ROUTE_END
+
+
+def test_any_other_shortfall_still_gets_its_retry():
+    state = {"evidence_sufficient": False, "retry_count": 0, "shortfall_problem": "too_thin"}
+
+    assert should_refine(state) == ROUTE_REFINE

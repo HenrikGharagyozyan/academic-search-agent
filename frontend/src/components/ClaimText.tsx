@@ -1,30 +1,43 @@
 import type { Answer } from "../types/answer";
 import { Citation } from "./Citation";
-import { MathText } from "./MathText";
+import { Prose } from "./Prose";
+import { groupBySource } from "../utils/sources";
 
 interface ClaimTextProps {
   claim: Answer["claims"][number];
   evidence: Answer["evidence"];
-  citationNumbers: Map<string, number>;
 }
 
 const CONFIDENCE_STYLES: Record<
   Answer["claims"][number]["confidence"],
   { bg: string; color: string; label: string }
 > = {
-  high: { bg: "#dcfce7", color: "#166534", label: "High confidence" },
-  medium: { bg: "#fef3c7", color: "#92400e", label: "Medium confidence" },
-  low: { bg: "#fee2e2", color: "#991b1b", label: "Low confidence" },
+  // "high" is never shown: a label on every confident claim would be noise.
+  high: { bg: "transparent", color: "inherit", label: "High confidence" },
+  medium: {
+    bg: "var(--color-confidence-medium-bg)",
+    color: "var(--color-confidence-medium-text)",
+    label: "Medium confidence",
+  },
+  low: {
+    bg: "var(--color-confidence-low-bg)",
+    color: "var(--color-confidence-low-text)",
+    label: "Low confidence",
+  },
 };
 
-export function ClaimText({ claim, evidence, citationNumbers }: ClaimTextProps) {
+export function ClaimText({ claim, evidence }: ClaimTextProps) {
   const confidenceStyle = CONFIDENCE_STYLES[claim.confidence];
+  // One chip per page, not per passage: three passages from one article are
+  // one source to the reader, and the popup lists all three.
+  const sources = groupBySource(
+    claim.evidence_ids.map((id) => evidence[id]).filter((item) => item !== undefined)
+  );
 
   return (
-    <p
+    <div
       style={{
         marginBottom: 18,
-        lineHeight: 1.7,
         fontSize: 16,
         color: "var(--color-text)",
       }}
@@ -47,24 +60,12 @@ export function ClaimText({ claim, evidence, citationNumbers }: ClaimTextProps) 
           {claim.confidence.toUpperCase()}
         </span>
       )}
-      <MathText text={claim.text} />{" "}
-      {claim.evidence_ids
-        .map((id) => {
-          const item = evidence[id];
-          const number = citationNumbers.get(id);
-          if (!item || number === undefined) return null;
-          return { id, item, number };
-        })
-        .filter(
-          (c): c is { id: string; item: (typeof evidence)[string]; number: number } =>
-            c !== null
-        )
-        .map((c, i, arr) => (
-          <span key={c.id}>
-            <Citation index={c.number} evidence={c.item} />
-            {i < arr.length - 1 && <span style={{ marginRight: 2 }}>,</span>}
-          </span>
+      <Prose
+        text={claim.text}
+        trailing={sources.map((passages) => (
+          <Citation key={passages[0].source_url} passages={passages} />
         ))}
-    </p>
+      />
+    </div>
   );
 }

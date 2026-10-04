@@ -6,16 +6,28 @@ from app.infrastructure.llm.base import LangChainLLMProvider
 BASE_URL = "https://openrouter.ai/api/v1"
 REQUEST_TIMEOUT_SECONDS = 30
 
+# Ceiling for the calls that return a query plan, a grade or a rewritten query.
+# OpenRouter reserves credit for the ceiling of every request in flight, and the
+# relevance judge runs five batches at once: at the answer's ceiling that was
+# five times 8192 tokens reserved for replies of a few hundred, and three of the
+# five were refused on a balance that covered the real cost many times over.
+SHORT_RESPONSE_MAX_TOKENS = 1024
+
 
 class OpenRouterProvider(LangChainLLMProvider):
     def __init__(self, settings: Settings, model: str) -> None:
-        super().__init__(
-            ChatOpenAI(
+        def chat(max_tokens: int) -> ChatOpenAI:
+            return ChatOpenAI(
                 base_url=BASE_URL,
                 api_key=settings.openrouter_api_key,
                 model=model,
+                max_tokens=max_tokens,
                 timeout=REQUEST_TIMEOUT_SECONDS,
-            ),
+            )
+
+        super().__init__(
+            chat(settings.llm_max_tokens),
+            short_llm=chat(min(SHORT_RESPONSE_MAX_TOKENS, settings.llm_max_tokens)),
             provider_name="openrouter",
             model_name=model,
         )
