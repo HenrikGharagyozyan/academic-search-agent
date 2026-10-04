@@ -7,6 +7,14 @@ from app.domain.documents import Chunk
 from app.domain.search import SearchResult
 
 
+class KeptAnswer(TypedDict):
+    summary: str
+    claims: list[Claim]
+    conclusion: str
+    # Every passage of that pass, so the kept claims can still be cited.
+    chunks: list[Chunk]
+
+
 class ResearchState(TypedDict):
     question: str
     search_query: str
@@ -27,6 +35,9 @@ class ResearchState(TypedDict):
     shortfall: str
     # The grader's problem code behind the shortfall ("" when there is none).
     shortfall_problem: str
+    # The grounded answer of an earlier pass, set aside before a retry. A retry
+    # can come back with nothing, and a thin answer is better than none.
+    kept_answer: KeptAnswer | None
     # Appended to, never replaced: every node contributes, and a refine pass
     # adds to the record of the first one instead of erasing it.
     activity: Annotated[list[ActivityStep], operator.add]

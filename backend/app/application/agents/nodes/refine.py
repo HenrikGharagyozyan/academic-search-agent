@@ -32,7 +32,19 @@ def refine_query_node(state: ResearchState, llm: LLMProvider) -> dict:
             detail=shortfall or None,
         )
 
+    # Set aside before the state is overwritten: if the new search finds
+    # nothing, this is the answer the reader still gets.
+    kept = state.get("kept_answer")
+    if state.get("claims"):
+        kept = {
+            "summary": state["summary"],
+            "claims": state["claims"],
+            "conclusion": state["conclusion"],
+            "chunks": state["chunks"],
+        }
+
     return {
+        "kept_answer": kept,
         "search_query": new_query,
         "retry_count": state["retry_count"] + 1,
         "activity": recorder.steps,

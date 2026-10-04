@@ -43,6 +43,7 @@ class ResearchService:
             "evidence_sufficient": False,
             "shortfall": "",
             "shortfall_problem": "",
+            "kept_answer": None,
             "activity": [],
         }
 
@@ -106,6 +107,11 @@ class ResearchService:
         yield {"event": "result", "data": answer.model_dump(mode="json")}
 
     def _build_answer(self, question: str, result: dict[str, Any]) -> Answer:
+        kept = result.get("kept_answer")
+        if not result["claims"] and kept:
+            # The retry found nothing to say; the earlier pass's thin but
+            # grounded answer stands, still marked as insufficient.
+            result = {**result, **kept, "evidence_sufficient": False}
         chunks: list[Chunk] = result["chunks"]
         claims = result["claims"]
         activity: list[ActivityStep] = result.get("activity", [])
