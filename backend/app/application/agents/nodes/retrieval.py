@@ -43,6 +43,7 @@ def _scrape_and_chunk(
         lines=split_into_lines(collapse_wiki_maths(page.markdown)),
         source_url=page.url,
         title=page.title or result.title,
+        citation=page.citation,
     )
 
 

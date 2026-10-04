@@ -6,6 +6,7 @@ import cachetools
 from firecrawl import FirecrawlApp
 
 from app.core.config import get_settings
+from app.domain.citation import citation_from_metadata
 from app.domain.search import ScrapedPage, SearchResult
 
 logger = logging.getLogger(__name__)
@@ -51,6 +52,18 @@ def _date_filter(since_year: int) -> str:
     """
     return f"cdr:1,cd_min:1/1/{since_year}"
 
+
+
+def _metadata_fields(metadata) -> dict:
+    """Every tag the page declared. The SDK's metadata model keeps tags it has
+    no field for, such as citation_author, as extras, which model_dump
+    includes."""
+    if metadata is None:
+        return {}
+    if isinstance(metadata, dict):
+        return metadata
+    dump = getattr(metadata, "model_dump", None)
+    return dump() if callable(dump) else {}
 
 
 class FirecrawlProvider:
@@ -99,6 +112,7 @@ class FirecrawlProvider:
             url=url,
             title=(response.metadata.title if response.metadata else "") or "",
             markdown=response.markdown or "",
+            citation=citation_from_metadata(_metadata_fields(response.metadata)),
         )
 
         if page.markdown:

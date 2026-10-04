@@ -178,3 +178,15 @@ def test_chunk_lines_splits_an_unbroken_run_with_no_word_boundaries():
     chunks = chunk_lines("doc1", lines, source_url="https://example.com", title="Example")
 
     assert all(len(c.text) <= CHUNK_CHAR_BUDGET for c in chunks)
+
+
+def test_every_chunk_carries_the_pages_citation():
+    from app.domain.citation import SourceCitation
+
+    citation = SourceCitation(authors=["Cheng, A."], year=2023)
+    lines = [DocumentLine(line_number=i, text=f"Paragraph {i}. " * 40) for i in range(1, 6)]
+
+    chunks = chunk_lines("doc", lines, "https://x.org", "Title", citation=citation)
+
+    assert len(chunks) > 1
+    assert all(c.citation == citation for c in chunks)
