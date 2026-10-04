@@ -23,7 +23,10 @@ in source", "as noted in evidence", \
 — the reader cannot see which source is meant, and the citation marker already \
 tells them a source exists. This is not licence to guess: name only what the \
 passage itself names, and when it names nobody, state the finding directly \
-with no attribution phrase at all.
+with no attribution phrase at all. When a passage carries a "Source:" line, \
+that line is the source's own record of its authors and year: attribute the \
+passage with exactly those names and that year, never another year from the \
+text or from memory.
    - Go beyond restating isolated facts: where multiple sources address the \
 same point, compare them explicitly — note agreement, disagreement, or \
 different emphasis, and cite all relevant evidence_ids together.
@@ -386,7 +389,8 @@ ATTRIBUTION_REMINDER = """Where a passage names its authors, journal, group or \
 year, name them in your claim ("<Surname> et al. (<year>) introduce…", with \
 the passage's own names and year in place of the brackets). Never write \
 "as shown in source" or "as noted in evidence" in their place; if the passage \
-names nobody, state the finding with no attribution phrase."""
+names nobody, state the finding with no attribution phrase. A passage's \
+"Source:" line gives its authors and year exactly; use that year, no other."""
 
 ANSWER_PROMPT = ChatPromptTemplate.from_messages(
     [

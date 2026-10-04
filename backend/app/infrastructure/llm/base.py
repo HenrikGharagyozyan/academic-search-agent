@@ -13,6 +13,7 @@ from langchain_core.language_models import BaseChatModel
 
 from app.core.exceptions import ProviderCreditsExhausted
 from app.domain.answers import Claim, ClaimsResponse
+from app.domain.citation import short_attribution
 from app.domain.documents import Chunk
 from app.domain.grading import AnswerQualityGrade, RelevanceGrade
 from app.domain.query import QueryPlan
@@ -92,11 +93,23 @@ class LangChainLLMProvider:
     def _as_block(chunks: Sequence[Chunk], label: str) -> str:
         return "\n\n".join(f"[{label}: {c.chunk_id}]\n{c.text}" for c in chunks)
 
+    @staticmethod
+    def _as_evidence_block(chunks: Sequence[Chunk]) -> str:
+        """Each passage under its id and, when its page declares one, its
+        source's own authors and year — the record an attribution is taken
+        from, so the year is the page's and not the model's guess."""
+        parts = []
+        for c in chunks:
+            source = short_attribution(c.citation)
+            header = f"[evidence_id: {c.chunk_id}]" + (f"\nSource: {source}" if source else "")
+            parts.append(f"{header}\n{c.text}")
+        return "\n\n".join(parts)
+
     @classmethod
     def _as_evidence(cls, chunks: Sequence[Chunk]) -> str:
         # In @ notation, because the model copies the notation it reads: shown
         # backslashes, it wrote backslashes, and JSON ate them.
-        return to_channel_notation(cls._as_block(chunks, "evidence_id"))
+        return to_channel_notation(cls._as_evidence_block(chunks))
 
     @_billing_surfaces
     @llm_retry

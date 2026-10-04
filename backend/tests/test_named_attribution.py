@@ -70,3 +70,9 @@ def test_the_placeholders_are_declared_as_placeholders():
     assert "<Surname> et al. (<year>)" in SYSTEM_PROMPT
     assert "never text to copy" in FLAT
     assert "must appear in the passage you cite" in FLAT
+
+
+def test_the_source_line_is_named_as_the_record_of_the_year():
+    assert 'carries a "Source:" line' in FLAT
+    assert "never another year from the text or from memory" in FLAT
+    assert '"Source:" line gives its authors and year exactly' in _after_evidence()
