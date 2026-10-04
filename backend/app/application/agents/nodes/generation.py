@@ -5,7 +5,7 @@ from app.application.agents.activity import ActivityRecorder, count
 from app.application.agents.state import ResearchState
 from app.core.exceptions import UpstreamServiceError
 from app.domain.answers import ClaimsResponse
-from app.domain.attribution import correct_years
+from app.domain.attribution import correct_years, move_attribution_out_of_theme
 from app.domain.documents import Chunk
 from app.domain.text.cleanup import find_evidence_id_leak, strip_evidence_ids
 from app.domain.text.equations import (
@@ -34,18 +34,23 @@ def _presented(result: ClaimsResponse) -> ClaimsResponse:
     # A direct answer has no sections. The model is told so; this holds it to
     # its own decision, so "what is X" cannot arrive as a numbered survey.
     themed = result.answer_shape == "survey"
+    claims = []
+    for claim in result.claims:
+        # Before the theme can be dropped: an attribution written only in the
+        # heading would otherwise go with it.
+        theme, text = move_attribution_out_of_theme(claim.theme, claim.text)
+        claims.append(
+            claim.model_copy(
+                update={
+                    "text": _presentable(text),
+                    "theme": tidy_theme(theme) if themed else "",
+                }
+            )
+        )
     return result.model_copy(
         update={
             "summary": _presentable(result.summary),
-            "claims": [
-                claim.model_copy(
-                    update={
-                        "text": _presentable(claim.text),
-                        "theme": tidy_theme(claim.theme) if themed else "",
-                    }
-                )
-                for claim in result.claims
-            ],
+            "claims": claims,
             "conclusion": _presentable(result.conclusion),
         }
     )
