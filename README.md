@@ -10,28 +10,32 @@ The research pipeline is a [LangGraph](https://langchain-ai.github.io/langgraph/
 
 ```mermaid
 flowchart LR
-    Q([question]) --> S[search]
+    Q([question]) --> P[plan_searches]
+    P --> S[search]
     S --> R[retrieve_and_chunk]
     R --> SEL[select_relevant_chunks]
     SEL --> GR[grade_relevance]
     GR --> G[generate_claims]
     G --> V[verify_evidence]
     V --> GA{grade_answer}
-    GA -- satisfactory --> A([answer])
-    GA -- insufficient,<br/>retries left --> RF[refine_query]
-    RF --> S
+    GA -- end --> A([answer])
+    GA -- refine --> RF[refine_query]
+    RF --> P
 ```
+
+After `grade_answer`, `should_refine` ends the run when the answer is sufficient, when `MAX_RETRIES` retries have been used, or when the grader judged it not a research question; otherwise it goes to `refine_query`, which leads back to planning rather than straight to search, so the rewritten query is spread over several searches too.
 
 | Step | What it does |
 |---|---|
+| **plan_searches** | The model plans up to `MAX_QUERIES` (4) searches that approach the question from different directions. A planned query that keeps less than about half of the question's subject words has left the subject and is discarded; the question itself is always searched. A question asking for recent work ("latest", "recent", a recent year) limits the search to the last `RECENCY_WINDOW_YEARS` (3) years. On a retry it plans from the rewritten query. |
 | **search** | Runs the planned queries on Firecrawl in parallel, `RESULTS_PER_QUERY` (10) results each, and chooses the `MAX_SOURCES` (12) candidates worth reading ([`backend/app/domain/sources.py`](backend/app/domain/sources.py)). Scholarly hosts (publishers, preprint servers, proceedings, `.edu`/`.ac.*`, lab research sites) lead, then encyclopedias, documentation and well-known blogs; Reddit, YouTube, Medium and the like are demoted but never excluded. Relevance to the question and the engine's own ranking count for more than the host does, so an on-topic tutorial beats a paper that only grazes the subject. Every query's best result gets a slot, each further page from one host costs it, and a page titled like one already chosen — the same paper on another site — waits behind every distinct page. |
-| **retrieve_and_chunk** | Scrapes each page to Markdown in parallel, splits it into numbered lines, and packs consecutive paragraphs into overlapping chunks of at most `CHUNK_CHAR_BUDGET` (1400) characters. A heading ships with the section it introduces, and a paragraph larger than the budget is split on word boundaries. Scraped pages are cached in-memory by URL for an hour. A page that fails to scrape is skipped and the run continues. |
+| **retrieve_and_chunk** | Scrapes each page to Markdown in parallel, splits it into numbered lines, and packs consecutive paragraphs into overlapping chunks of at most `CHUNK_CHAR_BUDGET` (1400) characters. A heading ships with the section it introduces, and a paragraph larger than the budget is split on word boundaries. Scraped pages are cached in-memory by URL for an hour. A page that fails to scrape is skipped and the run continues. Pages that turn out to be the same document on different sites are dropped before anything is embedded, as are duplicate passages. |
 | **select_relevant_chunks** | Embeds the chunks with `gemini-embedding-001` into a temporary in-memory Chroma collection and ranks every chunk by closeness to the question (by BM25 over the question's words if embedding fails). It then keeps `TOP_K_CHUNKS` (60), giving each source a turn before any page repeats, so one long page cannot take every slot. |
-| **grade_relevance** | The model judges which selected chunks are actually relevant to the question and drops the rest. If the judge rejects everything, no chunks survive and the run yields an empty answer rather than one built on irrelevant context. Chunks are kept only when the grading call itself fails. |
-| **generate_claims** | The configured model returns structured output: a `summary`, a list of `claims` (each with `evidence_ids`, a `confidence` and, for a survey, a `theme`), and a `conclusion`. Each passage is shown with its page's own authors and year when the page declares them in its citation tags, and an attribution's year is then set from that record: "Cheng et al. (2022)" becomes 2023 if the cited page says 2023. A source named only in a section heading is moved into the claim, so the claim is the one place its source is named. |
+| **grade_relevance** | The model judges which selected chunks are actually relevant to the question and drops the rest, in parallel batches of `GRADE_BATCH_SIZE` (8). If the judge rejects everything, no chunks survive and the run yields an empty answer rather than one built on irrelevant context. A batch's chunks are kept only when the grading call for that batch itself fails. |
+| **generate_claims** | The configured model returns structured output: first an `answer_shape` — `direct` for one core answer, written as prose, or `survey` for several aspects, written as claims grouped under numbered themes — then a `summary`, a list of `claims` (each with `evidence_ids`, a `confidence` and, for a survey, a `theme`), and a `conclusion`. Each passage is shown with its page's own authors and year when the page declares them in its citation tags, and an attribution's year is then set from that record: "Cheng et al. (2022)" becomes 2023 if the cited page says 2023. A source named only in a section heading is moved into the claim, so the claim is the one place its source is named. An answer that still shows an evidence ID, has a formula damaged beyond repair, leaves an equation as plain text, or drops every equation the passages state is generated once more and the less flawed of the two kept; one that still shows an evidence ID after that is not returned. |
 | **verify_evidence** | Removes evidence IDs that don't match a chunk that was actually selected, and drops any claim left with no valid evidence. |
-| **grade_answer** | The model judges whether the generated answer is a satisfactory, on-topic response — can mark it insufficient even if the evidence was grounded. |
-| **refine_query** | Runs only if the answer was judged insufficient, and not for a question a literature search cannot answer. The model is given the searches already run and the grader's reason the answer fell short, writes a search aimed at that, and the loop runs again, up to `MAX_RETRIES` (1) time. The first answer is kept: if the retry finds nothing, or every search fails, the reader still gets it, marked as insufficient. |
+| **grade_answer** | The model judges whether the generated answer is a satisfactory, on-topic response — can mark it insufficient even if the evidence was grounded — and, if not, why: off topic, too thin, missing an aspect, built on non-substantive pages, or not a question a literature search can answer. When no claim survived verification the model is not asked; the answer is insufficient and no reason is recorded. |
+| **refine_query** | Runs only if the answer was judged insufficient, and not when the grader judged it not a question a literature search can answer. That judgement needs a grounded answer to grade: when no claim survived verification the grader is not asked, and the retry runs. The model is given the searches already run and the grader's reason the answer fell short, writes a search aimed at that, and the loop runs again, up to `MAX_RETRIES` (1) time. The first answer is kept: if the retry finds nothing, or every search fails, the reader still gets it, marked as insufficient. |
 
 You can tune the pipeline in [`backend/app/application/agents/constants.py`](backend/app/application/agents/constants.py) and the chunk sizes in [`backend/app/domain/text/chunker.py`](backend/app/domain/text/chunker.py).
 
