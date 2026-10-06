@@ -39,6 +39,13 @@ After `grade_answer`, `should_refine` ends the run when the answer is sufficient
 
 You can tune the pipeline in [`backend/app/application/agents/constants.py`](backend/app/application/agents/constants.py) and the chunk sizes in [`backend/app/domain/text/chunker.py`](backend/app/domain/text/chunker.py).
 
+## The interface
+
+- **How the answer was found.** While a run is in progress the current stage is shown with its latest step under it. The full trail — searches planned, pages found, read or skipped, copies of one paper set aside, passages ranked and judged, claims written and verified — is kept on the answer in a collapsible panel, grouped by attempt when the agent searched twice.
+- **Source chips.** A claim's sources appear after its last sentence as chips with the site's icon and name, one per page. A chip opens every passage the claim cites from that page, with its line range. Icons are fetched from DuckDuckGo's icon service by host, so the request carries the source's domain and nothing about the question; without network access the chip shows the site's initial instead.
+- **Answer shape.** A direct answer is prose; a survey groups its claims under numbered themes and ends with a conclusion. Formulas are typeset with KaTeX. An answer whose evidence was judged insufficient carries a warning.
+- **Theme.** A system / light / dark switch, remembered across visits and applied before the first paint.
+
 ## Tech stack
 
 | Layer | Technology |
