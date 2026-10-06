@@ -178,16 +178,17 @@ academic-search-agent/
 │   ├── app/
 │   │   ├── main.py            # composition root: builds the layers, wires FastAPI
 │   │   ├── domain/            # entities and pure algorithms — no I/O, no framework
-│   │   │   └── text/          # latex, evidence-id cleanup, line splitter, chunker
+│   │   │   └── text/          # chunker, mirror detection, LaTeX and equations, evidence-id cleanup
 │   │   ├── ports/             # the Protocols the pipeline depends on
 │   │   ├── infrastructure/    # adapters: llm/, search/, embeddings/, vector_store/
 │   │   ├── application/       # agents/ (LangGraph) and services/
 │   │   ├── api/               # routes and request/response DTOs
-│   │   └── core/              # settings, exceptions, logging
+│   │   ├── core/              # settings, exceptions, logging
+│   │   └── scripts/           # eval_sources, eval_maths and manual smoke checks
 │   ├── tests/
 │   └── Dockerfile
 ├── frontend/
-│   ├── src/                   # App, citation components, API client
+│   ├── src/                   # App, citation chips, activity trail, theme switch, API client
 │   ├── nginx.conf             # serves the SPA, proxies /api/ to backend
 │   └── Dockerfile
 ├── docker-compose.yml
@@ -199,13 +200,15 @@ The backend is laid out in layers, and dependencies only ever point inward:
 
 | Layer | May depend on | Holds |
 |---|---|---|
-| `domain` | nothing of ours | Chunks, claims, answers; LaTeX restoration, chunking |
+| `domain` | nothing of ours | Chunks, claims, answers; chunking, source selection, attribution, LaTeX restoration |
 | `ports` | `domain` | `LLMProvider`, `SearchProvider`, `EmbeddingsProvider`, `VectorStore` |
 | `infrastructure` | `domain`, `ports`, `core` | Firecrawl, Chroma, Gemini embeddings, the LLM adapters |
-| `application` | the above | the LangGraph pipeline and the services around it |
-| `api` | the above | FastAPI routes and DTOs |
+| `application` | `domain`, `ports`, `core`, `infrastructure` | the LangGraph pipeline and the services around it |
+| `api` | `domain`, `ports`, `core`, `application` | FastAPI routes and DTOs |
+| `core` | nothing of ours | settings, exceptions, logging |
+| `scripts` | everything but `api` | evaluation and smoke-check scripts |
 
-`tests/test_architecture.py` enforces this by reading each module's imports, so
+`main.py` is the composition root and the one module exempt. `tests/test_architecture.py` enforces this by reading each module's imports, so
 a shortcut across layers fails CI rather than accumulating.
 
 ### Adding an LLM provider
