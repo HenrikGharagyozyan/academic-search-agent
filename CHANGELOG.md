@@ -81,11 +81,21 @@ loses it.
 - A claim can name an author whose page it does not itself cite; only the year
   of an author it does cite is checked.
 
-## [0.3.0] — 2026-09-24
+## [0.3.0] — 2026-09-26
 
-A stabilisation release: no new user-facing features, but the retrieval path
-was producing far worse evidence than intended, and the backend had no declared
-structure to hang a second LLM vendor on.
+Mostly a stabilisation release: the retrieval path was producing far worse
+evidence than intended, and the backend had no declared structure to hang a
+second LLM vendor on. It also brought a streamed answer, OpenRouter as a
+second model provider, and typeset formulas.
+
+### Added
+
+- **A streamed answer.** `POST /api/v1/answer/stream` sends a `progress`
+  event as each pipeline stage finishes, then the answer, and the interface
+  shows the current stage while it waits.
+- **OpenRouter as a model provider**, selected with `LLM_PROVIDER=openrouter`.
+- **Formulas.** LaTeX the model's output damaged is restored, and formulas are
+  typeset with KaTeX in the interface.
 
 ### Fixed
 
@@ -131,6 +141,7 @@ structure to hang a second LLM vendor on.
   plus one registry entry.
 - Retry policy is unified: the two providers previously carried disagreeing
   lists of retryable error markers.
+- The refine loop runs at most once (`MAX_RETRIES` was 2).
 - The model, the embedding model and the CORS origins are configuration rather
   than literals in the source.
 - CI now builds and lints the frontend; previously only backend tests ran.
