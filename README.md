@@ -222,10 +222,12 @@ API changes: they all depend on the `LLMProvider` port.
 
 ## Limitations
 
-- **`/answer` is synchronous and can be slow.** A full run (search, scrape, embed, generate, and possibly two refine loops) can take a minute or more. The nginx proxy timeout is 120 s.
-- **Scraped pages are cached, nothing else is.** Each `/answer` request re-embeds
-  its chunks and builds a fresh in-memory vector collection; only the raw
-  scraped page content is cached (by URL, one hour TTL).
+- **`/answer` is synchronous and can be slow.** A full run (plan, search, scrape, embed, judge, generate, and possibly one retry of all of it) can take a minute or more. The nginx proxy timeout is 120 s.
+- **Only scraped pages and embeddings are cached, in memory.** Scraped pages are
+  cached by URL (one hour, 256 pages) and embeddings by task type and text (one
+  hour, 2000 vectors), for the life of the backend process. Each `/answer`
+  request still builds a fresh in-memory vector collection, and nothing the
+  model writes is cached.
 - **Gemini free-tier quotas are small.** Each answer makes several model calls (embeddings, generation, and possibly refine calls), so you can hit a free-tier daily limit quickly. Set `LLM_PROVIDER=openrouter` to move generation and grading off Gemini; embeddings stay on Gemini either way. Rate-limit and 503 errors are retried with backoff.
 - **On the free embedding tier, semantic ranking works for about one question a day.** The quota is 1000 embedded texts per day and a question produces 600–900 passages. Once it is spent, passages are ranked by BM25 over the question's subject words instead. That keeps the selection about the question — the earlier fallback took the first passages of each page — but it matches words, not meaning, and answers are noticeably better with embeddings available. The backend log says which was used: `Embedding/vector search failed, ranking N chunks by the question's terms instead`.
 - **Formulas can arrive damaged.** The model returns JSON, where a backslash starts an escape, so a LaTeX command written with one can be decoded into a control character. The pipeline asks for `@` in its place, repairs what is reversible, and regenerates an answer whose formula is not; if the retry is damaged too, the answer is returned and the activity trail notes that a formula may be missing a symbol. `uv run python -m app.scripts.eval_maths` measures this against the live model.
