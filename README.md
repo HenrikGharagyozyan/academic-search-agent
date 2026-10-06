@@ -119,9 +119,22 @@ All endpoints except `/health` are under `/api/v1`.
 |---|---|---|---|
 | `GET` | `/health` | — | `{"status": "ok"}` |
 | `POST` | `/api/v1/answer` | `{"question": str}` (3–500 chars) | Full research answer (see below) |
-| `POST` | `/api/v1/answer/stream` | same as `/answer` | Server-sent events: a `progress` event per pipeline stage, then one `result` or `error`. This is what the UI uses. |
+| `POST` | `/api/v1/answer/stream` | same as `/answer` | Server-sent events: `progress` and `activity` events while the pipeline runs, then one `result` or `error`. This is what the UI uses. |
 | `POST` | `/api/v1/search` | `{"query": str, "limit": 1–20}` | Search results only (title, URL, snippet) |
 | `POST` | `/api/v1/documents` | `{"url": str}` | Scraped page split into numbered lines |
+
+`/answer` returns 502 when an external provider fails (including a model provider that is out of credits) and 503 when the pipeline itself fails.
+
+The stream sends each event as `event: <name>` and `data: <json>`:
+
+| Event | When | `data` |
+|---|---|---|
+| `progress` | a pipeline stage has finished | `{"stage": "search", "label": "Searching sources"}` |
+| `activity` | a step inside a stage, the moment it happens: a search planned or run, a page found, read or skipped, passages ranked and judged, claims written and verified | `{"kind": "scrape_ok", "label": "Read arxiv.org", "url": …, "title": …, "detail": "14 passages", "attempt": 0}` |
+| `result` | the run is finished | the full answer, as from `/answer` |
+| `error` | the run failed | `{"detail": str}` |
+
+`attempt` is 0 for the first pass and 1 for a retry.
 
 Example:
 
@@ -137,7 +150,7 @@ curl -X POST http://127.0.0.1:8000/api/v1/answer \
   "summary": "…",
   "claims": [
     { "text": "AdamW decouples weight decay from the gradient update.",
-      "evidence_ids": ["3f2c…"], "confidence": "high" }
+      "evidence_ids": ["3f2c…"], "confidence": "high", "theme": "" }
   ],
   "conclusion": "…",
   "evidence": {
@@ -146,11 +159,15 @@ curl -X POST http://127.0.0.1:8000/api/v1/answer \
       "source_url": "https://…", "title": "…", "start_line": 41, "end_line": 58
     }
   },
-  "evidence_sufficient": true
+  "evidence_sufficient": true,
+  "activity": [
+    { "kind": "plan", "label": "Planned 4 searches", "url": null,
+      "title": null, "detail": "…", "attempt": 0 }
+  ]
 }
 ```
 
-Every ID in a claim's `evidence_ids` has a matching entry in `evidence`, including the passage text and its line range in the source.
+Every ID in a claim's `evidence_ids` has a matching entry in `evidence`, including the passage text and its line range in the source. `theme` names the claim's section in a survey answer and is empty in a direct one. `evidence_sufficient` is false when no claim survived verification or the grader judged the answer insufficient, including when a retry found nothing and the first pass's answer is returned. `activity` is the same trail the stream sends, kept on the answer.
 
 ## Project structure
 
