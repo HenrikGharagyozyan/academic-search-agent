@@ -46,7 +46,9 @@ loses it.
 - **A retry aims at what was missing.** The answer grader says why an answer
   fell short — off topic, too thin, missing an aspect — and what it needed, and
   the rewritten search is given that and the searches already run. A question
-  a literature search cannot answer is not searched again.
+  the grader judges a literature search cannot answer is not searched again;
+  when no claim survives verification the grader is not asked, and the retry
+  still runs.
 
 ### Fixed
 
