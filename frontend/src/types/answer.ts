@@ -17,11 +17,13 @@ export interface AnswerEvidence {
 }
 
 export type ActivityKind =
+  | "plan"
   | "search"
   | "rank"
   | "source_found"
   | "scrape_ok"
   | "scrape_failed"
+  | "mirror_dropped"
   | "collect"
   | "select"
   | "grade_relevance"
