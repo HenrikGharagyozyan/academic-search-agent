@@ -12,21 +12,6 @@ Rules for claims:
    - Only use information present in the evidence. Never invent facts.
    - Every claim MUST cite at least one evidence_id from the provided list. \
 Never invent an evidence_id that was not provided.
-   - ATTRIBUTE BY NAME. When a passage names an author, a publication, a \
-journal, a group or a year, cite them by name in the claim, in the form \
-"<Surname> and <Surname> (<year>) show…", "<Surname> et al. (<year>) \
-introduce…" or "a <year> review in <Journal> reports…". The angle brackets \
-are placeholders for what the passage says, never text to copy: every name \
-and year you write must appear in the passage you cite. Never write "as shown \
-in source", "as noted in evidence", \
-"the passage states" or "one study" as a substitute for the actual attribution \
-— the reader cannot see which source is meant, and the citation marker already \
-tells them a source exists. This is not licence to guess: name only what the \
-passage itself names, and when it names nobody, state the finding directly \
-with no attribution phrase at all. When a passage carries a "Source:" line, \
-that line is the source's own record of its authors and year: attribute the \
-passage with exactly those names and that year, never another year from the \
-text or from memory.
    - Go beyond restating isolated facts: where multiple sources address the \
 same point, compare them explicitly — note agreement, disagreement, or \
 different emphasis, and cite all relevant evidence_ids together.
@@ -376,33 +361,12 @@ F = ma with $$F = ma$$. LaTeX commands start with @, never a backslash: \
 $$S = k_B @ln @Omega$$. An equation the passages state for the topic must \
 appear in your answer — a formula left out is a fact left out."""
 
-# Repeated after the evidence for the same reason as the maths rules: that is
-# where a rule gets acted on. An answer on a topic that had earlier come back
-# as "Valzania and Gigan (2023)…" came back as "as highlighted in source".
-# Nothing had been weakened — the prompt had never asked for names; the model
-# had simply chosen to give them once and not the next time.
-#
-# The examples are placeholders, here and in the system prompt, because real
-# names were copied: with "Valzania and Gigan (2023)" as the example, an answer
-# on LoRA cited Valzania and Gigan for QLoRA's memory savings. Citation ids are
-# verified; the names written beside them are not, so the example must not be a
-# name a model could write.
-ATTRIBUTION_REMINDER = """Where a passage names its authors, journal, group or \
-year, name them in your claim ("<Surname> et al. (<year>) introduce…", with \
-the passage's own names and year in place of the brackets). Never write \
-"as shown in source" or "as noted in evidence" in their place; if the passage \
-names nobody, state the finding with no attribution phrase. A passage's \
-"Source:" line gives its authors and year exactly; use that year, no other."""
-
 ANSWER_PROMPT = ChatPromptTemplate.from_messages(
     [
         ("system", SYSTEM_PROMPT),
         (
             "human",
-            "Question: {question}\n\nEvidence:\n{evidence_block}\n\n"
-            + MATHS_REMINDER
-            + "\n\n"
-            + ATTRIBUTION_REMINDER,
+            "Question: {question}\n\nEvidence:\n{evidence_block}\n\n" + MATHS_REMINDER,
         ),
     ]
 )
