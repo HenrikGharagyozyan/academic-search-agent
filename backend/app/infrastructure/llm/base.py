@@ -57,6 +57,20 @@ def _billing_surfaces(method: Callable[P, R]) -> Callable[P, R]:
     return wrapper
 
 
+def _structured(runnable, prompt):
+    """Invokes a structured-output runnable, refusing an empty reply.
+
+    Over tool calls a reply that never calls the tool — cut off by the token
+    ceiling, or answered in prose — parses to None, and the nodes then fail on
+    an attribute of None. Raised instead, it is retried like any transient
+    failure.
+    """
+    result = runnable.invoke(prompt)
+    if result is None:
+        raise RuntimeError("The model returned no structured output")
+    return result
+
+
 class LangChainLLMProvider:
     """Base adapter for any model reachable through a LangChain chat interface."""
 
@@ -128,7 +142,7 @@ class LangChainLLMProvider:
                 ),
             }
         )
-        return self._plan_llm.invoke(prompt)
+        return _structured(self._plan_llm, prompt)
 
     @_billing_surfaces
     @llm_retry
@@ -136,7 +150,7 @@ class LangChainLLMProvider:
         prompt = ANSWER_PROMPT.invoke(
             {"question": question, "evidence_block": self._as_evidence(evidence)}
         )
-        return self._answer_llm.invoke(prompt)
+        return _structured(self._answer_llm, prompt)
 
     @_billing_surfaces
     @llm_retry
@@ -160,7 +174,7 @@ class LangChainLLMProvider:
         prompt = RELEVANCE_GRADE_PROMPT.invoke(
             {"question": question, "chunks_block": self._as_block(chunks, "chunk_id")}
         )
-        return self._relevance_llm.invoke(prompt)
+        return _structured(self._relevance_llm, prompt)
 
     @_billing_surfaces
     @llm_retry
@@ -175,4 +189,4 @@ class LangChainLLMProvider:
                 "conclusion": conclusion,
             }
         )
-        return self._quality_llm.invoke(prompt)
+        return _structured(self._quality_llm, prompt)
