@@ -2,7 +2,6 @@ import re
 import uuid
 
 from app.domain.documents import Chunk, DocumentLine
-from app.domain.citation import SourceCitation
 from app.domain.text.sentences import split_sentences
 
 # Chunks are packed according to the budget of characters, not strings — Firecrawl puts one
@@ -32,7 +31,6 @@ def chunk_lines(
     lines: list[DocumentLine],
     source_url: str,
     title: str,
-    citation: SourceCitation | None = None,
 ) -> list[Chunk]:
     if not lines:
         return []
@@ -52,7 +50,6 @@ def chunk_lines(
                 end_line=piece.end_line,
                 source_url=source_url,
                 title=title,
-                citation=citation or SourceCitation(),
             )
         )
 
