@@ -190,3 +190,64 @@ def test_every_chunk_carries_the_pages_citation():
 
     assert len(chunks) > 1
     assert all(c.citation == citation for c in chunks)
+
+
+def _prose(count: int) -> list[str]:
+    return [
+        f"Sentence {i} reports that the method improves focusing in multimode fibers."
+        for i in range(count)
+    ]
+
+
+def test_chunks_end_on_sentence_boundaries():
+    """A long paragraph was cut wherever the budget ran out, mid-sentence, and
+    the half sentence at each end of a passage carried nothing a reader or the
+    embedding model could use."""
+    sentences = _prose(60)
+    lines = split_into_lines(" ".join(sentences))
+
+    chunks = chunk_lines("doc1", lines, source_url="https://example.com", title="Example")
+
+    assert len(chunks) > 1
+    for c in chunks:
+        assert c.text.startswith("Sentence ")
+        assert c.text.endswith("fibers.")
+        assert len(c.text) <= CHUNK_CHAR_BUDGET
+
+
+def test_overlap_repeats_whole_sentences_within_the_overlap():
+    from app.domain.text.chunker import CHUNK_CHAR_OVERLAP
+    from app.domain.text.sentences import split_sentences
+
+    lines = split_into_lines(" ".join(_prose(60)))
+
+    chunks = chunk_lines("doc1", lines, source_url="https://example.com", title="Example")
+
+    for previous, current in zip(chunks, chunks[1:]):
+        first = split_sentences(current.text)[0]
+        assert first in split_sentences(previous.text)
+        shared = [s for s in split_sentences(current.text) if s in split_sentences(previous.text)]
+        assert len(" ".join(shared)) <= CHUNK_CHAR_OVERLAP
+
+
+def test_a_paragraph_that_does_not_fit_moves_to_the_next_chunk_whole():
+    first = " ".join(_prose(12))  # about 900 characters, over half the budget
+    second = " ".join(f"Other {i} is a separate paragraph about a new idea." for i in range(12))
+    lines = split_into_lines(first + "\n\n" + second)
+
+    chunks = chunk_lines("doc1", lines, source_url="https://example.com", title="Example")
+
+    assert "Other" not in chunks[0].text
+    # The second chunk is the first one's closing sentence, then the paragraph.
+    overlap, paragraph = chunks[1].text.split("\n\n", 1)
+    assert chunks[0].text.endswith(overlap)
+    assert paragraph.startswith("Other 0 ")
+
+
+def test_a_chunk_never_ends_on_a_heading():
+    body = " ".join(_prose(14))
+    lines = split_into_lines(body + "\n\n## Next section\n\n" + body)
+
+    chunks = chunk_lines("doc1", lines, source_url="https://example.com", title="Example")
+
+    assert not any(c.text.rstrip().splitlines()[-1].startswith("#") for c in chunks)
