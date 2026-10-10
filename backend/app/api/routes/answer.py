@@ -1,4 +1,6 @@
 import json
+import queue
+import threading
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
@@ -10,6 +12,10 @@ from app.api.schemas.answer import AnswerRequest
 from app.application.services.research import ResearchService
 
 router = APIRouter(prefix="/api/v1", tags=["answer"])
+
+# Well under the proxy's read timeout, so a silent stage never reaches it.
+HEARTBEAT_SECONDS = 15
+_DONE = object()
 
 
 @router.post("/answer", response_model=Answer)
@@ -35,7 +41,31 @@ def answer_stream(
     service: ResearchService = Depends(get_research_service),
 ) -> StreamingResponse:
     def event_generator():
-        for event in service.stream_answer(request.question):
+        # The pipeline runs on its own thread so that this one can speak while
+        # it is silent. A reasoning model can think for minutes before the
+        # answer arrives, and a proxy closes a stream that sends nothing for
+        # its read timeout — nginx's two minutes cut off an answer mid-thought.
+        events: queue.Queue = queue.Queue()
+
+        def run() -> None:
+            try:
+                for event in service.stream_answer(request.question):
+                    events.put(event)
+            finally:
+                events.put(_DONE)
+
+        threading.Thread(target=run, daemon=True).start()
+
+        while True:
+            try:
+                event = events.get(timeout=HEARTBEAT_SECONDS)
+            except queue.Empty:
+                # An SSE comment: it keeps the connection open, and every
+                # client, ours included, skips it as carrying no data.
+                yield ": ping\n\n"
+                continue
+            if event is _DONE:
+                return
             yield _format_sse(event["event"], event["data"])
 
     return StreamingResponse(
