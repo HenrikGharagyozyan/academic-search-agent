@@ -23,6 +23,16 @@ class Settings(BaseSettings):
     # tokens for gpt-4o-mini — so every call was refused with 402 on a balance
     # that would have covered the few thousand tokens an answer actually takes.
     llm_max_tokens: int = Field(default=8192, gt=0)
+    # Seconds before a model call is abandoned. A reasoning model thinks before
+    # it answers, and a long answer can take minutes.
+    llm_timeout_seconds: float = Field(default=30, gt=0)
+    # Ask an OpenRouter model to reason before writing the answer. Only the
+    # answer call reasons; planning and grading stay quick.
+    llm_reasoning: bool = False
+
+    # Which answer prompt to use: "strict" is the long rule-by-rule prompt,
+    # "free" a short one that leaves the shape of the answer to the model.
+    answer_prompt_style: Literal["strict", "free"] = "strict"
 
     embedding_model: str = "models/gemini-embedding-001"
 
