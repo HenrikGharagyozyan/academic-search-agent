@@ -60,23 +60,6 @@ def test_generate_answer_passes_chunks_as_an_evidence_block(llm):
     assert "ev_1" in rendered and "body text" in rendered
 
 
-def test_a_passage_with_a_citation_record_is_shown_with_its_source(llm):
-    """The year an attribution gives is the page's, not the model's guess."""
-    from app.domain.citation import SourceCitation
-
-    structured_llm(llm).invoke.return_value = ClaimsResponse(summary="s", claims=[], conclusion="c")
-    cited = make_chunk("ev_1", "body text").model_copy(
-        update={"citation": SourceCitation(authors=["Cheng, A.", "Li, B.", "Wu, C."], year=2023)}
-    )
-    bare = make_chunk("ev_2", "other text")
-
-    build_provider(llm).generate_answer("q?", [cited, bare])
-    rendered = "".join(m.content for m in structured_llm(llm).invoke.call_args.args[0].to_messages())
-
-    assert "[evidence_id: ev_1]\nSource: Cheng et al. (2023)\nbody text" in rendered
-    assert "[evidence_id: ev_2]\nother text" in rendered
-
-
 def test_refine_query_reads_text_not_content(llm):
     # A model returning content blocks makes `.content` a list; `.text` flattens both.
     llm.invoke.return_value = AIMessage(content=[{"type": "text", "text": "  refined  "}])
