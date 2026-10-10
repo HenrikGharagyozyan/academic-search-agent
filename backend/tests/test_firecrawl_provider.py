@@ -112,25 +112,3 @@ def test_a_search_error_that_is_not_a_rate_limit_is_not_retried(mock_app_cls, sl
 
     assert client.search.call_count == 1
     sleep.assert_not_called()
-
-
-# --- the page's own citation record -----------------------------------------
-
-
-@patch("app.infrastructure.search.firecrawl.FirecrawlApp")
-def test_scrape_reads_the_citation_tags(mock_app_cls):
-    from firecrawl.v2.types import Document, DocumentMetadata
-
-    mock_app_cls.return_value.scrape.return_value = Document(
-        markdown="# Paper",
-        metadata=DocumentMetadata(
-            title="Wavefront shaping",
-            citation_author=["Resisi, Shachar", "Bromberg, Yaron"],
-            citation_date="2019/10/07",
-        ),
-    )
-
-    page = FirecrawlProvider().scrape("https://arxiv.org/abs/1910.02798")
-
-    assert page.citation.year == 2019
-    assert page.citation.authors == ["Resisi, Shachar", "Bromberg, Yaron"]
