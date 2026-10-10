@@ -3,6 +3,7 @@ import uuid
 
 from app.domain.documents import Chunk, DocumentLine
 from app.domain.citation import SourceCitation
+from app.domain.text.sentences import split_sentences
 
 # Chunks are packed according to the budget of characters, not strings — Firecrawl puts one
 # a paragraph (or headline) per line separated by blank lines, so that
@@ -12,7 +13,15 @@ from app.domain.citation import SourceCitation
 # the context to be a useful quotable unit, and forces
 # MAX_SOURCES/TOP_K_CHUNKS work as intended — a fixed number
 # meaningful passages, not a fixed number of random lines.
+#
+# The budget is a ceiling, not a cutting length. Text is split recursively —
+# paragraph, then line, then sentence, then word — and a chunk ends on the
+# largest boundary that keeps it within the budget, so a passage never stops in
+# the middle of a sentence unless that one sentence is longer than a chunk.
 CHUNK_CHAR_BUDGET = 1400
+# The next chunk opens with the last whole sentences of this one, up to this
+# many characters, so a statement and the sentence explaining it are found
+# together whichever chunk is retrieved.
 CHUNK_CHAR_OVERLAP = 200
 
 _HEADING_RE = re.compile(r"^#{1,6}\s")
@@ -30,9 +39,10 @@ def chunk_lines(
 
     paragraphs = _group_into_paragraphs(lines)
     paragraphs = _merge_headings_forward(paragraphs)
+    units = _to_units(paragraphs, CHUNK_CHAR_BUDGET)
 
     chunks: list[Chunk] = []
-    for piece in _pack_by_char_budget(paragraphs, CHUNK_CHAR_BUDGET, CHUNK_CHAR_OVERLAP):
+    for piece in _pack(units, CHUNK_CHAR_BUDGET, CHUNK_CHAR_OVERLAP):
         chunks.append(
             Chunk(
                 chunk_id=str(uuid.uuid4()),
@@ -113,6 +123,27 @@ def _merge_headings_forward(paragraphs: list[_Paragraph]) -> list[_Paragraph]:
     return merged
 
 
+# How a unit joins the one before it in the page: within a line, across a
+# line break, or across a blank line.
+_SAME_LINE, _NEW_LINE, _NEW_PARAGRAPH = " ", "\n", "\n\n"
+
+
+class _Unit:
+    """The smallest piece a chunk is built from: a sentence, or part of one
+    when a sentence alone is longer than the budget."""
+
+    __slots__ = ("text", "line_number", "paragraph", "joiner", "is_heading")
+
+    def __init__(
+        self, text: str, line_number: int, paragraph: int, joiner: str, is_heading: bool
+    ) -> None:
+        self.text = text
+        self.line_number = line_number
+        self.paragraph = paragraph
+        self.joiner = joiner
+        self.is_heading = is_heading
+
+
 class _Piece:
     __slots__ = ("text", "start_line", "end_line")
 
@@ -142,84 +173,127 @@ def _split_text(text: str, budget: int) -> list[str]:
     return parts
 
 
-def _split_oversized(paragraph: _Paragraph, budget: int) -> list[_Paragraph]:
-    """Breaks up a paragraph that on its own exceeds the budget.
+def _tail(text: str, size: int) -> str:
+    """The last ``size`` characters of ``text`` or fewer, starting on a word."""
+    if len(text) <= size:
+        return text
+    start = len(text) - size
+    space = text.find(" ", start)
+    return text[space + 1 :] if 0 <= space < len(text) - 1 else text[start:]
+
+
+def _to_units(paragraphs: list[_Paragraph], budget: int) -> list[_Unit]:
+    """Paragraph → line → sentence → word: each level is cut only where the
+    one above it does not fit, so a cut lands on the largest boundary that
+    works.
 
     A scraped line can be enormous — a whole article rendered without blank
     lines, or a wide table row. Left whole it becomes a chunk many times the
     budget, which pushes the embedding call past the model's input limit; and a
-    failed embedding call makes the vector store fall back to "first N chunks"
-    for the *entire* request, so one bad page would silently disable semantic
-    retrieval for the whole question.
+    failed embedding call makes the vector store fall back to ranking by words
+    for the *entire* request, so one bad page would disable semantic retrieval
+    for the whole question.
     """
-    if len(paragraph.text) <= budget:
-        return [paragraph]
+    units: list[_Unit] = []
+    for index, paragraph in enumerate(paragraphs):
+        for line_index, line in enumerate(paragraph.lines):
+            is_heading = bool(_HEADING_RE.match(line.text))
+            sentences = [line.text] if is_heading else split_sentences(line.text)
+            parts = [part for sentence in sentences for part in _split_text(sentence, budget)]
+            for part_index, part in enumerate(parts):
+                if part_index:
+                    joiner = _SAME_LINE
+                elif line_index:
+                    joiner = _NEW_LINE
+                else:
+                    joiner = _NEW_PARAGRAPH
+                units.append(_Unit(part, line.line_number, index, joiner, is_heading))
+    return units
 
-    parts: list[_Paragraph] = []
-    for line in paragraph.lines:
-        for text in _split_text(line.text, budget):
-            parts.append(
-                _Paragraph([DocumentLine(line_number=line.line_number, text=text)])
-            )
 
-    return parts
+def _join(units: list[_Unit]) -> str:
+    return "".join((u.joiner if i else "") + u.text for i, u in enumerate(units))
 
 
-def _pack_by_char_budget(
-    paragraphs: list[_Paragraph], budget: int, overlap: int
-) -> list[_Piece]:
+def _length(units: list[_Unit]) -> int:
+    return len(_join(units))
+
+
+def _pack(units: list[_Unit], budget: int, overlap: int) -> list[_Piece]:
+    """Packs units into pieces of at most ``budget`` characters, each opening
+    with the last sentences of the one before, up to ``overlap`` characters.
+
+    A paragraph that does not fit is moved whole to the next piece when the
+    current one is already half full; otherwise it is cut between sentences, so
+    no piece is left mostly empty to keep a paragraph together.
+    """
     pieces: list[_Piece] = []
-    buffer: list[_Paragraph] = []
-    carried = 0  # leading paragraphs in the buffer held over from the last piece
+    buffer: list[_Unit] = []
+    carried = 0  # leading units in the buffer held over from the last piece
 
-    def buffered_chars() -> int:
-        """Length of the text flush() would emit, separators included."""
-        if not buffer:
-            return 0
-        return sum(len(p.text) for p in buffer) + 2 * (len(buffer) - 1)
+    def emit(content: list[_Unit]) -> None:
+        pieces.append(
+            _Piece(_join(content), content[0].line_number, content[-1].line_number)
+        )
+
+    def overlap_from(content: list[_Unit]) -> list[_Unit]:
+        """The trailing sentences to repeat at the start of the next piece.
+
+        Never the whole piece: a piece repeated in full is the same passage
+        twice, embedded twice and competing with itself for the top slots.
+        When even the last sentence is longer than the overlap, its tail is
+        carried instead, cut to start on a word.
+        """
+        carry: list[_Unit] = []
+        for unit in reversed(content[1:]):
+            if _length([unit] + carry) > overlap:
+                break
+            carry.insert(0, unit)
+        if carry or len(_join(content)) <= overlap:
+            return carry
+        last = content[-1]
+        fragment = _tail(last.text, overlap)
+        return [_Unit(fragment, last.line_number, last.paragraph, last.joiner, False)]
 
     def flush() -> None:
         nonlocal buffer, carried
-        pieces.append(
-            _Piece(
-                "\n\n".join(p.text for p in buffer),
-                buffer[0].start_line,
-                buffer[-1].end_line,
-            )
-        )
+        content = buffer
+        # A heading closing a piece would be cut off from what it titles.
+        held = []
+        while len(content) > carried + 1 and content[-1].is_heading:
+            held.insert(0, content.pop())
+        emit(content)
+        buffer = overlap_from(content) + held
+        carried = len(buffer) - len(held)
 
-        # Carry a tail of the emitted piece so the next one overlaps it. Only
-        # paragraphs after the first are eligible: carrying a lone paragraph
-        # would emit that same text again as a chunk of its own.
-        carry: list[_Paragraph] = []
-        carry_chars = 0
-        for paragraph in reversed(buffer[1:]):
-            if carry and carry_chars >= overlap:
-                break
-            carry.insert(0, paragraph)
-            carry_chars += len(paragraph.text)
+    paragraph_lengths: dict[int, int] = {}
+    for unit in units:
+        paragraph_lengths[unit.paragraph] = paragraph_lengths.get(unit.paragraph, 0) + len(
+            unit.joiner
+        ) + len(unit.text)
 
-        buffer = carry
-        carried = len(carry)
-
-    for paragraph in paragraphs:
-        for part in _split_oversized(paragraph, budget):
-            over_budget = buffered_chars() + 2 + len(part.text) > budget
-            # A buffer holding nothing but carry-over has no new content to
-            # emit; flushing it would just repeat the previous piece.
-            if over_budget and len(buffer) > carried:
+    for unit in units:
+        fresh = len(buffer) > carried
+        if fresh and unit.joiner == _NEW_PARAGRAPH:
+            room = budget - _length(buffer)
+            if paragraph_lengths[unit.paragraph] > room and _length(buffer) >= budget // 2:
                 flush()
 
-            buffer.append(part)
+        while _length(buffer + [unit]) > budget:
+            if len(buffer) > carried:
+                flush()
+            elif buffer:
+                # Only overlap left, and the unit does not fit beside it:
+                # give up overlap before going over the budget.
+                buffer.pop(0)
+                carried -= 1
+            else:
+                break
 
-    if buffer and len(buffer) > carried:
-        pieces.append(
-            _Piece(
-                "\n\n".join(p.text for p in buffer),
-                buffer[0].start_line,
-                buffer[-1].end_line,
-            )
-        )
+        buffer.append(unit)
+
+    if len(buffer) > carried:
+        emit(buffer)
 
     return pieces
 
