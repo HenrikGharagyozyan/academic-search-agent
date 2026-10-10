@@ -30,10 +30,6 @@ class Settings(BaseSettings):
     # answer call reasons; planning and grading stay quick.
     llm_reasoning: bool = False
 
-    # Which answer prompt to use: "strict" is the long rule-by-rule prompt,
-    # "free" a short one that leaves the shape of the answer to the model.
-    answer_prompt_style: Literal["strict", "free"] = "strict"
-
     embedding_model: str = "models/gemini-embedding-001"
 
     cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:5173"])
