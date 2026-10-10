@@ -31,6 +31,10 @@ class Settings(BaseSettings):
     llm_reasoning: bool = False
 
     embedding_model: str = "models/gemini-embedding-001"
+    # "openrouter" embeds through the OpenRouter key instead of Gemini's, whose
+    # free quota covers about one question a day.
+    embedding_provider: Literal["gemini", "openrouter"] = "gemini"
+    openrouter_embedding_model: str = "openai/text-embedding-3-small"
 
     cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:5173"])
 
