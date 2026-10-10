@@ -10,6 +10,7 @@ from collections.abc import Callable, Sequence
 from typing import ParamSpec, TypeVar
 
 from langchain_core.language_models import BaseChatModel
+from langchain_core.prompts import ChatPromptTemplate
 
 from app.core.exceptions import ProviderCreditsExhausted
 from app.domain.answers import Claim, ClaimsResponse
@@ -67,19 +68,26 @@ class LangChainLLMProvider:
         provider_name: str,
         model_name: str,
         short_llm: BaseChatModel | None = None,
+        answer_prompt: ChatPromptTemplate = ANSWER_PROMPT,
+        structured_method: str | None = None,
     ) -> None:
         """``short_llm`` is the same model configured for the calls whose reply
         is a few hundred tokens — planning, grading, rewriting a query — when
         the vendor charges for the response ceiling rather than the response.
-        Only the answer itself needs a long one."""
+        Only the answer itself needs a long one.
+
+        ``structured_method`` is passed to ``with_structured_output`` for a
+        model that offers tool calls but not JSON-schema output."""
         short_llm = short_llm or llm
+        structured = {"method": structured_method} if structured_method else {}
         self._llm = short_llm
         self._provider_name = provider_name
         self._model_name = model_name
-        self._answer_llm = llm.with_structured_output(ClaimsResponse)
-        self._plan_llm = short_llm.with_structured_output(QueryPlan)
-        self._relevance_llm = short_llm.with_structured_output(RelevanceGrade)
-        self._quality_llm = short_llm.with_structured_output(AnswerQualityGrade)
+        self._answer_prompt = answer_prompt
+        self._answer_llm = llm.with_structured_output(ClaimsResponse, **structured)
+        self._plan_llm = short_llm.with_structured_output(QueryPlan, **structured)
+        self._relevance_llm = short_llm.with_structured_output(RelevanceGrade, **structured)
+        self._quality_llm = short_llm.with_structured_output(AnswerQualityGrade, **structured)
 
     @property
     def provider_name(self) -> str:
@@ -128,7 +136,7 @@ class LangChainLLMProvider:
     @_billing_surfaces
     @llm_retry
     def generate_answer(self, question: str, evidence: Sequence[Chunk]) -> ClaimsResponse:
-        prompt = ANSWER_PROMPT.invoke(
+        prompt = self._answer_prompt.invoke(
             {"question": question, "evidence_block": self._as_evidence(evidence)}
         )
         return self._answer_llm.invoke(prompt)
