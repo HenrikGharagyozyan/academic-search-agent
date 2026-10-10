@@ -2,7 +2,6 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 
 from app.core.config import Settings
 from app.infrastructure.llm.base import LangChainLLMProvider
-from app.infrastructure.llm.prompts import ANSWER_PROMPTS
 
 
 class GeminiProvider(LangChainLLMProvider):
@@ -15,5 +14,4 @@ class GeminiProvider(LangChainLLMProvider):
             ),
             provider_name="gemini",
             model_name=model,
-            answer_prompt=ANSWER_PROMPTS[settings.answer_prompt_style],
         )

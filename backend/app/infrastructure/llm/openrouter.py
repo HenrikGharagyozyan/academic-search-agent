@@ -2,7 +2,6 @@ from langchain_openai import ChatOpenAI
 
 from app.core.config import Settings
 from app.infrastructure.llm.base import LangChainLLMProvider
-from app.infrastructure.llm.prompts import ANSWER_PROMPTS
 
 BASE_URL = "https://openrouter.ai/api/v1"
 
@@ -31,7 +30,6 @@ class OpenRouterProvider(LangChainLLMProvider):
             short_llm=chat(min(SHORT_RESPONSE_MAX_TOKENS, settings.llm_max_tokens)),
             provider_name="openrouter",
             model_name=model,
-            answer_prompt=ANSWER_PROMPTS[settings.answer_prompt_style],
             # Tool calls are the one structured-output route every OpenRouter
             # model offers; free endpoints often lack JSON-schema output.
             structured_method="function_calling",

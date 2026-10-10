@@ -10,7 +10,6 @@ from collections.abc import Callable, Sequence
 from typing import ParamSpec, TypeVar
 
 from langchain_core.language_models import BaseChatModel
-from langchain_core.prompts import ChatPromptTemplate
 
 from app.core.exceptions import ProviderCreditsExhausted
 from app.domain.answers import Claim, ClaimsResponse
@@ -68,7 +67,6 @@ class LangChainLLMProvider:
         provider_name: str,
         model_name: str,
         short_llm: BaseChatModel | None = None,
-        answer_prompt: ChatPromptTemplate = ANSWER_PROMPT,
         structured_method: str | None = None,
     ) -> None:
         """``short_llm`` is the same model configured for the calls whose reply
@@ -83,7 +81,6 @@ class LangChainLLMProvider:
         self._llm = short_llm
         self._provider_name = provider_name
         self._model_name = model_name
-        self._answer_prompt = answer_prompt
         self._answer_llm = llm.with_structured_output(ClaimsResponse, **structured)
         self._plan_llm = short_llm.with_structured_output(QueryPlan, **structured)
         self._relevance_llm = short_llm.with_structured_output(RelevanceGrade, **structured)
@@ -136,7 +133,7 @@ class LangChainLLMProvider:
     @_billing_surfaces
     @llm_retry
     def generate_answer(self, question: str, evidence: Sequence[Chunk]) -> ClaimsResponse:
-        prompt = self._answer_prompt.invoke(
+        prompt = ANSWER_PROMPT.invoke(
             {"question": question, "evidence_block": self._as_evidence(evidence)}
         )
         return self._answer_llm.invoke(prompt)
