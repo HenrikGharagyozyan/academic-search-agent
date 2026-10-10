@@ -3,9 +3,7 @@ import uuid
 
 import chromadb
 
-from app.core.config import get_settings
 from app.infrastructure.embeddings.gemini import GeminiEmbeddingsProvider
-from app.infrastructure.embeddings.openrouter import OpenRouterEmbeddingsProvider
 from app.domain.documents import Chunk
 from app.domain.text.lexical import rank_by_terms
 from app.ports.embeddings import EmbeddingsProvider
@@ -13,15 +11,9 @@ from app.ports.embeddings import EmbeddingsProvider
 logger = logging.getLogger(__name__)
 
 
-def _default_embeddings() -> EmbeddingsProvider:
-    if get_settings().embedding_provider == "openrouter":
-        return OpenRouterEmbeddingsProvider()
-    return GeminiEmbeddingsProvider()
-
-
 class ChromaVectorStore:
     def __init__(self, embedding_provider: EmbeddingsProvider | None = None) -> None:
-        self._embeddings = embedding_provider or _default_embeddings()
+        self._embeddings = embedding_provider or GeminiEmbeddingsProvider()
         self._client = chromadb.EphemeralClient()
 
     def select_relevant_chunks(
