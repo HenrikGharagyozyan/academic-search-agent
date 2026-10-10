@@ -181,3 +181,23 @@ def test_progress_covers_every_pipeline_stage(pipeline):
         "verify_evidence",
         "grade_answer",
     ]
+
+
+def test_a_silent_stage_is_covered_by_heartbeats(client, mock_research_service, monkeypatch):
+    """A reasoning model thought past nginx's two-minute read timeout with
+    nothing sent, and the proxy closed the stream before the answer came."""
+    import time
+
+    from app.api.routes import answer as route
+
+    def slow(question):
+        time.sleep(0.25)
+        yield {"event": "result", "data": {"ok": True}}
+
+    monkeypatch.setattr(route, "HEARTBEAT_SECONDS", 0.05)
+    mock_research_service.stream_answer.side_effect = slow
+
+    body = client.post("/api/v1/answer/stream", json={"question": "Does it converge?"}).text
+
+    assert body.count(": ping\n\n") >= 2
+    assert body.rstrip().endswith('data: {"ok": true}')
