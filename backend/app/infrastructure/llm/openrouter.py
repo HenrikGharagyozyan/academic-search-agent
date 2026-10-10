@@ -22,7 +22,10 @@ class OpenRouterProvider(LangChainLLMProvider):
                 model=model,
                 max_tokens=max_tokens,
                 timeout=settings.llm_timeout_seconds,
-                extra_body={"reasoning": {"enabled": True}} if reasoning else None,
+                # Said either way: some models reason unless told not to, and
+                # Nemotron's reasoning alone overran the short calls' ceiling,
+                # leaving no room for the tool call that carries the reply.
+                extra_body={"reasoning": {"enabled": reasoning}},
             )
 
         super().__init__(
