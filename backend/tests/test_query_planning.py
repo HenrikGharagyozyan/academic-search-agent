@@ -14,7 +14,6 @@ import pytest
 from app.application.agents.constants import (
     MAX_QUERIES,
     MAX_SOURCES,
-    RECENCY_WINDOW_YEARS,
     RESULTS_PER_QUERY,
 )
 from app.application.agents.nodes import plan_searches_node, search_node
@@ -98,10 +97,11 @@ def test_planning_asks_for_several_queries_and_keeps_them():
     assert len(out["search_queries"]) == MAX_QUERIES
     # The planner was told the question is time-bound.
     assert llm.plan_searches.call_args.kwargs["recent"] is True
-    assert out["since_year"] == date.today().year - RECENCY_WINDOW_YEARS
+    # Wording only: the results are not cut off by date.
+    assert "since_year" not in out
 
 
-def test_a_timeless_question_gets_no_date_filter():
+def test_a_timeless_question_is_planned_as_timeless():
     llm = MagicMock()
     llm.plan_searches.return_value = QueryPlan(queries=["what is a transmission matrix"])
 
@@ -110,7 +110,6 @@ def test_a_timeless_question_gets_no_date_filter():
         llm=llm,
     )
 
-    assert out["since_year"] is None
     assert llm.plan_searches.call_args.kwargs["recent"] is False
 
 

@@ -1,8 +1,7 @@
 import logging
-from datetime import date
 
 from app.application.agents.activity import ActivityRecorder, count
-from app.application.agents.constants import MAX_QUERIES, RECENCY_WINDOW_YEARS
+from app.application.agents.constants import MAX_QUERIES
 from app.application.agents.state import ResearchState
 from app.core.exceptions import UpstreamServiceError
 from app.domain.query import anchor_terms, has_recency_intent, stays_on_topic
@@ -20,8 +19,9 @@ def plan_searches_node(state: ResearchState, llm: LLMProvider) -> dict:
     question = state.get("search_query") or state["question"]
     recorder = ActivityRecorder(attempt=state.get("retry_count", 0))
 
+    # Only steers the planner's wording. Results are not cut off by date: the
+    # filter dropped good older work and the answer was thinner for it.
     recent = has_recency_intent(question)
-    since_year = date.today().year - RECENCY_WINDOW_YEARS if recent else None
 
     try:
         plan = llm.plan_searches(question, count=MAX_QUERIES, recent=recent)
@@ -58,13 +58,11 @@ def plan_searches_node(state: ResearchState, llm: LLMProvider) -> dict:
 
     recorder.record(
         "plan",
-        f"Planned {count(len(queries), 'search')}"
-        + (f", limited to {since_year} onwards" if since_year else ""),
+        f"Planned {count(len(queries), 'search')}",
         detail=" · ".join(queries[1:]) or None,
     )
 
     return {
         "search_queries": queries,
-        "since_year": since_year,
         "activity": recorder.steps,
     }
