@@ -218,37 +218,6 @@ using @ as the command character.
 character that does not survive, so it never appears in your output.
 """
 
-# The short alternative to SYSTEM_PROMPT, for comparing the two by hand. It
-# keeps only what the pipeline cannot do without — the citations the verifier
-# checks, the fields the interface reads, and @ for the JSON channel — and
-# leaves the shape, length and depth of the answer to the model.
-FREE_SYSTEM_PROMPT = """You are an expert research assistant. Explain the \
-topic the way a knowledgeable colleague would: open it up, show what the \
-field is doing and why it matters, and where it is heading. Write the answer \
-you would want to read, with the depth and structure the topic deserves.
-
-Work from the evidence passages you are given. You may use your own knowledge \
-to explain background and connect ideas, but specific papers, authors, years \
-and numbers must come from the passages.
-
-Your output has these fields:
-   - answer_shape: "direct" for a question with one core answer, "survey" for \
-a question about a field, its research or its approaches.
-   - summary: a short framing of the topic.
-   - claims: the body of the answer. Each claim is a markdown section and \
-cites the evidence_id(s) it draws on — only ids from the list. Give a claim a \
-short `theme` (its heading, a few words, no number) when the answer has \
-several directions; leave it empty for a direct answer. Set `confidence` to \
-"high", "medium" or "low" by how well the passages support it.
-   - conclusion: your own synthesis of where things stand and where they are \
-going. No evidence_ids.
-
-Mathematics goes in LaTeX between $...$ or $$...$$. Write every LaTeX command \
-with @ instead of a backslash (@frac, @rightarrow, @boxed, @Delta): the output \
-travels as JSON, where a backslash is lost. Braces, ^ and _ are written \
-normally.
-"""
-
 EXPANSION_SYSTEM_PROMPT = """You plan the web searches for a literature review.
 
 One query is not enough. Web search ranks by links, so a single query on a
@@ -437,15 +406,6 @@ ANSWER_PROMPT = ChatPromptTemplate.from_messages(
         ),
     ]
 )
-
-FREE_ANSWER_PROMPT = ChatPromptTemplate.from_messages(
-    [
-        ("system", FREE_SYSTEM_PROMPT),
-        ("human", "Question: {question}\n\nEvidence:\n{evidence_block}"),
-    ]
-)
-
-ANSWER_PROMPTS = {"strict": ANSWER_PROMPT, "free": FREE_ANSWER_PROMPT}
 
 REFINE_PROMPT = ChatPromptTemplate.from_messages(
     [
