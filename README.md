@@ -115,6 +115,8 @@ Firecrawl, the language models and the vector store are all mocked, so the suite
 | `OPENROUTER_API_KEY` | `backend/.env` | Required when `LLM_PROVIDER=openrouter`; startup fails without it. |
 | `LLM_MODEL` | `backend/.env` | Overrides the provider's default model (`gemini-3.6-flash` / `openai/gpt-4o-mini`). |
 | `LLM_MAX_TOKENS` | `backend/.env` | Ceiling on each model response with OpenRouter, which reserves credit for the whole ceiling up front. Defaults to 8192. |
+| `LLM_TIMEOUT_SECONDS` | `backend/.env` | Seconds before a model call is abandoned. Defaults to 30; raise it for a reasoning model. |
+| `LLM_REASONING` | `backend/.env` | OpenRouter only: `true` lets the model reason before it writes the answer. Planning and grading never reason. Defaults to `false`. |
 | `EMBEDDING_MODEL` | `backend/.env` | Defaults to `models/gemini-embedding-001`. |
 | `CORS_ORIGINS` | `backend/.env` | JSON list of allowed browser origins. Defaults to `["http://localhost:5173"]`. |
 | `VITE_API_BASE_URL` | frontend build env | API base URL. Set to `/api/v1` in `.env.production` for the Docker/nginx setup. |
