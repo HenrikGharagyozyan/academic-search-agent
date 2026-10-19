@@ -65,10 +65,6 @@ GRADE_BATCH_SIZE = 8
 # judge is asked more often, not asked to weigh more at once.
 TOP_K_CHUNKS = 60
 
-# For a recency question, how far back still counts as current work. A year is
-# the usual web default and too tight for a literature review.
-RECENCY_WINDOW_YEARS = 3
-
 # Below the provider's per-minute scrape budget on purpose: twelve at once
 # exhausted it and the refused pages were reported as unreadable. The retry in
 # the adapter covers an occasional overshoot; this keeps the burst from causing

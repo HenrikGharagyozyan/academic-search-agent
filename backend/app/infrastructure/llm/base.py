@@ -13,7 +13,6 @@ from langchain_core.language_models import BaseChatModel
 
 from app.core.exceptions import ProviderCreditsExhausted
 from app.domain.answers import Claim, ClaimsResponse
-from app.domain.citation import short_attribution
 from app.domain.documents import Chunk
 from app.domain.grading import AnswerQualityGrade, RelevanceGrade
 from app.domain.query import QueryPlan
@@ -57,6 +56,20 @@ def _billing_surfaces(method: Callable[P, R]) -> Callable[P, R]:
     return wrapper
 
 
+def _structured(runnable, prompt):
+    """Invokes a structured-output runnable, refusing an empty reply.
+
+    Over tool calls a reply that never calls the tool — cut off by the token
+    ceiling, or answered in prose — parses to None, and the nodes then fail on
+    an attribute of None. Raised instead, it is retried like any transient
+    failure.
+    """
+    result = runnable.invoke(prompt)
+    if result is None:
+        raise RuntimeError("The model returned no structured output")
+    return result
+
+
 class LangChainLLMProvider:
     """Base adapter for any model reachable through a LangChain chat interface."""
 
@@ -67,19 +80,24 @@ class LangChainLLMProvider:
         provider_name: str,
         model_name: str,
         short_llm: BaseChatModel | None = None,
+        structured_method: str | None = None,
     ) -> None:
         """``short_llm`` is the same model configured for the calls whose reply
         is a few hundred tokens — planning, grading, rewriting a query — when
         the vendor charges for the response ceiling rather than the response.
-        Only the answer itself needs a long one."""
+        Only the answer itself needs a long one.
+
+        ``structured_method`` is passed to ``with_structured_output`` for a
+        model that offers tool calls but not JSON-schema output."""
         short_llm = short_llm or llm
+        structured = {"method": structured_method} if structured_method else {}
         self._llm = short_llm
         self._provider_name = provider_name
         self._model_name = model_name
-        self._answer_llm = llm.with_structured_output(ClaimsResponse)
-        self._plan_llm = short_llm.with_structured_output(QueryPlan)
-        self._relevance_llm = short_llm.with_structured_output(RelevanceGrade)
-        self._quality_llm = short_llm.with_structured_output(AnswerQualityGrade)
+        self._answer_llm = llm.with_structured_output(ClaimsResponse, **structured)
+        self._plan_llm = short_llm.with_structured_output(QueryPlan, **structured)
+        self._relevance_llm = short_llm.with_structured_output(RelevanceGrade, **structured)
+        self._quality_llm = short_llm.with_structured_output(AnswerQualityGrade, **structured)
 
     @property
     def provider_name(self) -> str:
@@ -95,15 +113,7 @@ class LangChainLLMProvider:
 
     @staticmethod
     def _as_evidence_block(chunks: Sequence[Chunk]) -> str:
-        """Each passage under its id and, when its page declares one, its
-        source's own authors and year — the record an attribution is taken
-        from, so the year is the page's and not the model's guess."""
-        parts = []
-        for c in chunks:
-            source = short_attribution(c.citation)
-            header = f"[evidence_id: {c.chunk_id}]" + (f"\nSource: {source}" if source else "")
-            parts.append(f"{header}\n{c.text}")
-        return "\n\n".join(parts)
+        return LangChainLLMProvider._as_block(chunks, "evidence_id")
 
     @classmethod
     def _as_evidence(cls, chunks: Sequence[Chunk]) -> str:
@@ -123,7 +133,7 @@ class LangChainLLMProvider:
                 ),
             }
         )
-        return self._plan_llm.invoke(prompt)
+        return _structured(self._plan_llm, prompt)
 
     @_billing_surfaces
     @llm_retry
@@ -131,7 +141,7 @@ class LangChainLLMProvider:
         prompt = ANSWER_PROMPT.invoke(
             {"question": question, "evidence_block": self._as_evidence(evidence)}
         )
-        return self._answer_llm.invoke(prompt)
+        return _structured(self._answer_llm, prompt)
 
     @_billing_surfaces
     @llm_retry
@@ -155,7 +165,7 @@ class LangChainLLMProvider:
         prompt = RELEVANCE_GRADE_PROMPT.invoke(
             {"question": question, "chunks_block": self._as_block(chunks, "chunk_id")}
         )
-        return self._relevance_llm.invoke(prompt)
+        return _structured(self._relevance_llm, prompt)
 
     @_billing_surfaces
     @llm_retry
@@ -170,4 +180,4 @@ class LangChainLLMProvider:
                 "conclusion": conclusion,
             }
         )
-        return self._quality_llm.invoke(prompt)
+        return _structured(self._quality_llm, prompt)

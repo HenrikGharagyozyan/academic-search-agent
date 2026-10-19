@@ -4,6 +4,57 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] — 2026-10-19
+
+Steadier runs. A long answer from a reasoning model is no longer cut off by
+the proxy, a model that skips its output tool is asked again, and passages are
+cut where a sentence ends. Two things 0.4.0 added are taken back: the date
+filter on recency questions and the authors and year read from each page.
+
+### Added
+
+- **Heartbeats on the answer stream.** While a stage is silent the stream
+  sends an SSE comment every 15 seconds, so nginx does not close it while the
+  model is still thinking.
+- `LLM_TIMEOUT_SECONDS`, how long a model call may take, for every provider.
+- `LLM_REASONING`, which lets an OpenRouter model reason before it writes the
+  answer. Planning and grading never reason.
+
+### Changed
+
+- **Passages end on sentence boundaries.** Text over the chunk budget is split
+  on the largest boundary that fits — paragraph, line, sentence, word — and the
+  next chunk opens with the last whole sentences of the one before, up to 200
+  characters. Sentence splitting leaves abbreviations, initials and maths
+  intact.
+- **OpenRouter asks for structured output through tool calls**, the one route
+  every OpenRouter model offers, and turns reasoning off explicitly on the
+  short calls.
+
+### Removed
+
+- **The date filter on recency questions.** A question asking for recent work
+  still steers the planner toward the newest work, but results are no longer
+  limited to the last three years: the filter dropped good older work and
+  answers were thinner for it. `RECENCY_WINDOW_YEARS` is gone.
+- **Sources' own authors and year.** Pages' citation tags are no longer read,
+  passages reach the model without a `Source:` line, the prompt no longer asks
+  for attribution by name, and attribution years are no longer rewritten. A
+  source named only in a section heading is still moved into the claim.
+
+### Fixed
+
+- **A structured reply that never called the output tool** — cut off by the
+  token ceiling, or answered in prose — failed the run on an empty result. It
+  is now retried like any transient failure.
+- **Nemotron's reasoning overran the short calls' token ceiling**, leaving no
+  room for the reply.
+
+### Configuration
+
+`LLM_TIMEOUT_SECONDS` (default 30) and `LLM_REASONING` (default `false`) are
+new and optional. See `backend/.env.example`.
+
 ## [0.4.0] — 2026-10-04
 
 Breadth and trust. An answer now draws on several differently-aimed searches,
