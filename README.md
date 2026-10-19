@@ -228,7 +228,9 @@ Write an adapter in `app/infrastructure/llm/` deriving from
 `LangChainLLMProvider` (it supplies a chat model and two names — prompts,
 structured output and retries are inherited), add its name to `ProviderName` in
 `app/core/config.py`, and add one entry to `REGISTRY` in
-`app/infrastructure/llm/registry.py`. Nothing in the agent, the services or the
+`app/infrastructure/llm/registry.py`. For a model that offers tool calls but
+not JSON-schema output, pass `structured_method="function_calling"`, as the
+OpenRouter adapter does. Nothing in the agent, the services or the
 API changes: they all depend on the `LLMProvider` port.
 
 ## Limitations
