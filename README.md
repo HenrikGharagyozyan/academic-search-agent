@@ -146,6 +146,8 @@ The stream sends each event as `event: <name>` and `data: <json>`:
 
 `attempt` is 0 for the first pass and 1 for a retry.
 
+While a stage is silent for 15 seconds the stream sends an SSE comment, `: ping`, so a proxy does not close it while a model is still thinking. Clients ignore comments as carrying no data.
+
 Example:
 
 ```bash
