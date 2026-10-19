@@ -233,7 +233,7 @@ API changes: they all depend on the `LLMProvider` port.
 
 ## Limitations
 
-- **`/answer` is synchronous and can be slow.** A full run (plan, search, scrape, embed, judge, generate, and possibly one retry of all of it) can take a minute or more. The nginx proxy timeout is 120 s.
+- **`/answer` is synchronous and can be slow.** A full run (plan, search, scrape, embed, judge, generate, and possibly one retry of all of it) can take a minute or more, several with a reasoning model. The nginx proxy timeout is 120 s: `/answer/stream` stays open past it on heartbeats, but `/answer` sends nothing until it finishes, so through nginx a longer run is cut off.
 - **Only scraped pages and embeddings are cached, in memory.** Scraped pages are
   cached by URL (one hour, 256 pages) and embeddings by task type and text (one
   hour, 2000 vectors), for the life of the backend process. Each `/answer`
