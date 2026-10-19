@@ -24,6 +24,8 @@ _TRANSIENT_MARKERS = (
     # OpenRouter reserves credit for every request in flight; a refusal on that
     # ground clears as soon as the others finish.
     "in-flight requests",
+    # A reply that never called the output tool; the next attempt usually does.
+    "no structured output",
 )
 
 # A refusal to spend: the balance cannot cover the request. Checked before the

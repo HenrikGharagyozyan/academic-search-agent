@@ -4,6 +4,57 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] — 2026-10-19
+
+Steadier runs. A long answer from a reasoning model is no longer cut off by
+the proxy, a model that skips its output tool is asked again, and passages are
+cut where a sentence ends. Two things 0.4.0 added are taken back: the date
+filter on recency questions and the authors and year read from each page.
+
+### Added
+
+- **Heartbeats on the answer stream.** While a stage is silent the stream
+  sends an SSE comment every 15 seconds, so nginx does not close it while the
+  model is still thinking.
+- `LLM_TIMEOUT_SECONDS`, how long a model call may take, for every provider.
+- `LLM_REASONING`, which lets an OpenRouter model reason before it writes the
+  answer. Planning and grading never reason.
+
+### Changed
+
+- **Passages end on sentence boundaries.** Text over the chunk budget is split
+  on the largest boundary that fits — paragraph, line, sentence, word — and the
+  next chunk opens with the last whole sentences of the one before, up to 200
+  characters. Sentence splitting leaves abbreviations, initials and maths
+  intact.
+- **OpenRouter asks for structured output through tool calls**, the one route
+  every OpenRouter model offers, and turns reasoning off explicitly on the
+  short calls.
+
+### Removed
+
+- **The date filter on recency questions.** A question asking for recent work
+  still steers the planner toward the newest work, but results are no longer
+  limited to the last three years: the filter dropped good older work and
+  answers were thinner for it. `RECENCY_WINDOW_YEARS` is gone.
+- **Sources' own authors and year.** Pages' citation tags are no longer read,
+  passages reach the model without a `Source:` line, the prompt no longer asks
+  for attribution by name, and attribution years are no longer rewritten. A
+  source named only in a section heading is still moved into the claim.
+
+### Fixed
+
+- **A structured reply that never called the output tool** — cut off by the
+  token ceiling, or answered in prose — failed the run on an empty result. It
+  is now retried like any transient failure.
+- **Nemotron's reasoning overran the short calls' token ceiling**, leaving no
+  room for the reply.
+
+### Configuration
+
+`LLM_TIMEOUT_SECONDS` (default 30) and `LLM_REASONING` (default `false`) are
+new and optional. See `backend/.env.example`.
+
 ## [0.4.0] — 2026-10-04
 
 Breadth and trust. An answer now draws on several differently-aimed searches,
@@ -46,7 +97,9 @@ loses it.
 - **A retry aims at what was missing.** The answer grader says why an answer
   fell short — off topic, too thin, missing an aspect — and what it needed, and
   the rewritten search is given that and the searches already run. A question
-  a literature search cannot answer is not searched again.
+  the grader judges a literature search cannot answer is not searched again;
+  when no claim survives verification the grader is not asked, and the retry
+  still runs.
 
 ### Fixed
 
@@ -79,11 +132,21 @@ loses it.
 - A claim can name an author whose page it does not itself cite; only the year
   of an author it does cite is checked.
 
-## [0.3.0] — 2026-09-24
+## [0.3.0] — 2026-09-26
 
-A stabilisation release: no new user-facing features, but the retrieval path
-was producing far worse evidence than intended, and the backend had no declared
-structure to hang a second LLM vendor on.
+Mostly a stabilisation release: the retrieval path was producing far worse
+evidence than intended, and the backend had no declared structure to hang a
+second LLM vendor on. It also brought a streamed answer, OpenRouter as a
+second model provider, and typeset formulas.
+
+### Added
+
+- **A streamed answer.** `POST /api/v1/answer/stream` sends a `progress`
+  event as each pipeline stage finishes, then the answer, and the interface
+  shows the current stage while it waits.
+- **OpenRouter as a model provider**, selected with `LLM_PROVIDER=openrouter`.
+- **Formulas.** LaTeX the model's output damaged is restored, and formulas are
+  typeset with KaTeX in the interface.
 
 ### Fixed
 
@@ -129,6 +192,7 @@ structure to hang a second LLM vendor on.
   plus one registry entry.
 - Retry policy is unified: the two providers previously carried disagreeing
   lists of retryable error markers.
+- The refine loop runs at most once (`MAX_RETRIES` was 2).
 - The model, the embedding model and the CORS origins are configuration rather
   than literals in the source.
 - CI now builds and lints the frontend; previously only backend tests ran.

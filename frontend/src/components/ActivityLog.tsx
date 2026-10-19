@@ -9,11 +9,13 @@ interface ActivityLogProps {
 
 /** A glyph per kind, so the trail can be skimmed without reading every line. */
 const MARK: Record<ActivityStep["kind"], string> = {
+  plan: "☰",
   search: "⌕",
   rank: "⇅",
   source_found: "·",
   scrape_ok: "✓",
   scrape_failed: "✕",
+  mirror_dropped: "⧉",
   collect: "▤",
   select: "▤",
   grade_relevance: "◈",
